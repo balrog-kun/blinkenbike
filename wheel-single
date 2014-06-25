@@ -1,0 +1,160 @@
+#include <I2Cdev.h>
+#include <MPU60X0.h>
+#include <WS2811.h>
+
+/* Define the output function, using pin 2 on port c. */
+#define LED_DDR  DDRC
+#define LED_PORT PORTC
+#define LED_PIN  2
+DEFINE_WS2811_FN(WS2811RGB, LED_PORT, LED_PIN)
+
+/////
+#include <MS561101BA.h>
+#include <HMC58X3.h>
+#include <EEPROM.h>
+#include "DebugUtils.h"
+#include "FreeIMU.h"
+#include <Wire.h>
+#include <SPI.h>
+FreeIMU my3IMU = FreeIMU();////
+struct led_strip_s {
+	int x0, y0, x1, y1, count;
+} strips[] = {
+	/*
+	 * Wheel is in a "zero" position, LED coordinates are in the wheel's
+	 * plane, X being the horizontal axis (bike's forward-back), Y the
+	 * vertical axis (bike's up-down), in milimeters.
+	 * x0, y0 is the first LED in the strip,
+	 * x1, y1 is the last LED, count is the number of LEDs including
+	 * first and last.
+	 */
+	{
+		-33, 48,
+		-51, 282,
+		15,
+	},
+	{
+		33, 48,
+		41, 282,
+		15,
+	},
+	{
+		55, 15,
+		260, -80,
+		15,
+	},
+	{
+		30, -45,
+		230, -180,
+		15,
+	},
+
+	{ 0 }
+};
+
+#define DIST_MAX 300
+
+static int led_cnt;
+static uint16_t led_angle[128];
+static uint8_t led_dist[128];
+
+void setup(void) {
+  struct led_strip_s *s;
+  int i, j;
+  float x, y;
+
+  delay(5);
+  my3IMU.init(true);
+  delay(5);
+
+  LED_DDR |= 1 << LED_PIN;
+  LED_PORT &= ~(1 << LED_PIN);
+
+#if 0
+  for (s = strips; s->x0; s ++) {
+    for (i = 0; i < s->count; i ++) {
+      x = s->x0 + (s->x1 - s->x0) * i / (float) (s->count - 1);
+      y = s->y0 + (s->y1 - s->y0) * i / (float) (s->count - 1);
+
+      led_dist[j] = sqrt(x * x + y * y) / DIST_MAX * 127.0;
+      led_angle[j] = 32768 - (int)
+        ((atan2(x, y) * (32768.0 / 3.1415));
+      j ++;
+    }
+  }
+#endif
+}
+
+static int prog = 1;
+extern const prog_uchar fontdata_8x8[];
+
+void loop(void) {
+  static float angle;
+  float sensors[9];
+  my3IMU.getValues(sensors);
+
+  unsigned long now = micros();
+  static unsigned long prev = 0;
+  angle += (-sensors[5]) * (now - prev) * 0.000001;
+  if (angle > 180.0)
+    angle -= 360.0;
+  else if (angle < -180.0)
+    angle += 360.0;
+  prev = now;
+
+  RGB_t ledsrgb[90];
+  /* Angular speed around Z */
+  prog = -sensors[5] > 180.0 ? 1 : 0;
+  /* TODO: draw reverse if going backwards? */
+
+  switch (prog) {
+  case 0:
+    for (uint8_t i = 0; i < 90; i ++) {
+      ledsrgb[i].r = angle > 0 ? 100 : 0;
+      ledsrgb[i].g = angle > 0 ? 100 : 0;
+      ledsrgb[i].b = angle > 0 ? 100 : 0;
+    }
+    break;
+  case 1:
+    static const char *label = "Bicicritica ";
+    static const int label_len = 12;
+    static const float angle_len = 180.0;
+    static const float maxangle = angle_len *
+      (int) (360.0 / angle_len);
+    static const int fontwidth = 8;
+    static const int fontheight = 8;
+
+      char ch;
+      uint8_t x, y, chnum;
+
+      if (angle < -180.0 || angle > maxangle) { // maxangle - 180.0?
+        chnum = 0;
+        ch = ' ';
+	x = 0;
+      } else {
+        int pxpos = (angle + 180.0) / angle_len *
+          (label_len * fontwidth);
+        chnum = (pxpos / fontwidth) % label_len;
+        ch = label[chnum];
+        x = pxpos % fontwidth;
+      }
+
+      for (y = 0; y < 15; y ++) {
+          uint8_t val = y < (15 - fontheight) ? 0 :
+            (fontdata_8x8[ch * fontheight + (15 - 1 - y)] >> (7 - x)) & 1;
+
+        ledsrgb[y].r = val ? 200 : 0;
+        ledsrgb[y].g = (val && chnum) ? 200 : 0;
+        ledsrgb[y].b = (val && chnum) ? 200 : 0;
+      }
+      for (; y < 60; y ++) {
+        ledsrgb[y].r = 0;
+        ledsrgb[y].g = 0;
+        ledsrgb[y].b = 0;
+      }
+
+    break;
+  }
+
+  WS2811RGB(ledsrgb, 60);
+}
