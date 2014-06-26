@@ -1,3 +1,8 @@
+/*
+ * Author: Andrew Zaborowski <andrew.zaborowski@intel.com>
+ *
+ * Licensed under the BSD license.
+ */
 #include <I2Cdev.h>
 #include <MPU60X0.h>
 #include <WS2811.h>
@@ -7,13 +12,7 @@
 
 #include <math.h>
 #include <avr/eeprom.h>
-
-#ifndef cbi
-#define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
-#endif
-#ifndef sbi
-#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
-#endif
+#include <avr/pgmspace.h>
 
 /* Sensors */
 static MPU60X0 accgyro;
@@ -161,8 +160,7 @@ void setup(void) {
   float x, y;
 
   /* Deactivate internal pull-ups for twi as per note from atmega8 manual */
-  cbi(PORTC, 4);
-  cbi(PORTC, 5);
+  PORTC &= ~((1 << 4) | (1 << 5));
 
   /* Switch to 400KHz I2C */
   TWBR = ((F_CPU / 400000L) - 16) / 2;
