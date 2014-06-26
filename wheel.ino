@@ -15,66 +15,9 @@
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 #endif
 
+/* Sensors */
 static MPU60X0 accgyro;
 static uint32_t gyro_offset[3];
-
-/* Define the output function, using pin 2 on port c. */
-#define LED_DDR  DDRC
-#define LED_PORT PORTC
-#define LED_PIN  2
-DEFINE_WS2811_FN(WS2811RGB, LED_PORT, LED_PIN)
-
-struct led_strip_s {
-	int x0, y0, x1, y1, count;
-} strips[] = {
-	/*
-	 * Wheel is in a "zero" position, LED coordinates are in the wheel's
-	 * plane, X being the horizontal axis (bike's forward-back), Y the
-	 * vertical axis (bike's up-down), in milimeters.
-	 * x0, y0 is the first LED in the strip,
-	 * x1, y1 is the last LED, count is the number of LEDs including
-	 * first and last.
-	 */
-	{
-		-33, 48,
-		-51, 282,
-		15,
-	},
-	{
-		33, 48,
-		41, 282,
-		15,
-	},
-	{
-		55, 15,
-		260, -80,
-		15,
-	},
-	{
-		30, -45,
-		230, -180,
-		15,
-	},
-	{
-		-30, -45,
-		-230, -180,
-		15,
-	},
-	{
-		-55, 15,
-		-260, -80,
-		15,
-	},
-
-	{ 0, 0, 0, 0, 0 }
-};
-
-#define DIST_MAX 300.0
-
-static int led_cnt;
-static uint16_t led_angle[128];
-static uint8_t led_dist[128];
-static uint8_t min_dist, full_dist;
 
 static void zero_gyro(void) {
   int i;
@@ -95,8 +38,64 @@ static void zero_gyro(void) {
   }
 }
 
-static uint8_t signal_cnt;
-static RGB_t signal_rgb;
+/* Define the output function, using pin 2 on port C. */
+#define LED_DDR  DDRC
+#define LED_PORT PORTC
+#define LED_PIN  2
+DEFINE_WS2811_FN(WS2811RGB, LED_PORT, LED_PIN)
+
+/* LED count and placement data */
+static int led_cnt;
+static uint16_t led_angle[128];
+static uint8_t led_dist[128];
+static uint8_t min_dist, full_dist;
+struct led_strip_s {
+	int x0, y0, x1, y1, count;
+} strips[] = {
+	/*
+	 * Wheel is in a "zero" position, LED coordinates are in the wheel's
+	 * plane, X being the horizontal axis (bike's forward-back), Y the
+	 * vertical axis (bike's up-down), in milimeters.
+	 * x0, y0 is the first LED in the strip,
+	 * x1, y1 is the last LED, count is the number of LEDs including
+	 * first and last.
+	 */
+	{
+		-32, 48,
+		-51, 282,
+		15,
+	},
+	{
+		32, 48,
+		51, 282,
+		15,
+	},
+	{
+		58, 4,
+		270, -97,
+		15,
+	},
+	{
+		25, -52,
+		219, -185,
+		15,
+	},
+	{
+		-25, -52,
+		-219, -185,
+		15,
+	},
+	{
+		-58, 4,
+		-270, -97,
+		15,
+	},
+
+	{ 0, 0, 0, 0, 0 }
+};
+
+/* Max. supported LED distance from wheel centre */
+#define DIST_MAX 300.0f
 
 /* Local static variables moved here so they can be saved / restored
  * to/from eeprom as a block */
@@ -105,10 +104,14 @@ static struct {
 #define EEPROM_MAGIC (0x00abcdef + EEPROM_VER)
   uint32_t magic;
 
-  uint16_t gyro_mult, prev_gyro_mult;
-  float cf_acc[2], prev_cf_acc[2];
+  uint8_t prog;
+  uint16_t gyro_mult;
+  float cf_acc[2];
   uint8_t cf_samples;
 } config, prev_config;
+
+static uint8_t signal_cnt;
+static RGB_t signal_rgb;
 
 static void eeprom_load(void) {
   /////eeprom_read_block(&config, NULL, sizeof(config));
@@ -127,7 +130,8 @@ static void eeprom_load(void) {
 }
 
 static void eeprom_save(void) {
-  return;;;//////
+  /* Not supported at this time */
+  return;
   /* Check if there's any change */
 
 #define DIFF(f) abs(config.f - prev_config.f)
@@ -192,11 +196,20 @@ void setup(void) {
   full_dist = led_dist[14] - led_dist[0];
 
   eeprom_load();
+  
+  Serial.begin(115200);
 }
 
-static int prog = 1;
+/* Text font data */
 extern const prog_uchar fontdata_8x8[];
 
+/*
+ * The functions below animate the LEDs in different ways
+ * as the wheel turns.  Only one program is active at any
+ * time.
+ */
+
+/* Illuminate one half of the wheel disc */
 static void prog_slow_set_leds(uint16_t zero_angle, RGB_t *rgb) {
   for (uint8_t i = 0; i < led_cnt; i ++) {
     uint16_t angle = zero_angle - led_angle[i];
@@ -207,7 +220,7 @@ static void prog_slow_set_leds(uint16_t zero_angle, RGB_t *rgb) {
   }
 }
 
-#if 0
+/* Display hardcoded text */
 static void prog_fast_multi_set_leds(float zero_angle, RGB_t *rgb) {
   static const char *label = "Bicicritica ";
   static const int label_len = 12;
@@ -242,48 +255,11 @@ static void prog_fast_multi_set_leds(float zero_angle, RGB_t *rgb) {
   }
 }
 
-static void prog_fast_single_set_leds(float zero_angle, RGB_t *rgb) {
-  static const char *label = "Bicicritica ";
-  static const int label_len = 12;
-  static const float angle_len = 180.0;
-  static const float maxangle = angle_len *
-    (int) (360.0 / angle_len);
-  static const int fontwidth = 8;
-  static const int fontheight = 8;
-
-  float angle = zero_angle;////
-
-    char ch;
-    uint8_t x, y, chnum;
-
-    if (angle < -180.0 || angle > maxangle) { // maxangle - 180.0?
-      chnum = 0;
-      ch = ' ';
-      x = 0;
-    } else {
-      int pxpos = (angle + 180.0) / angle_len *
-        (label_len * fontwidth);
-      chnum = (pxpos / fontwidth) % label_len;
-      ch = label[chnum];
-      x = pxpos % fontwidth;
-    }
-
-    for (y = 0; y < 15; y ++) {
-        uint8_t val = y < (15 - fontheight) ? 0 :
-          (pgm_read_byte(&fontdata_8x8[ch * fontheight + (15 - 1 - y)]) >>
-	   (7 - x)) & 1;
-
-      rgb[y].r = val ? 200 : 0;
-      rgb[y].g = (val && chnum) ? 200 : 0;
-      rgb[y].b = (val && chnum) ? 200 : 0;
-    }
-    for (; y < 60; y ++) {
-      rgb[y].r = 0;
-      rgb[y].g = 0;
-      rgb[y].b = 0;
-    }
-}
-
+/*
+ * Illuminate all LEDs with colour set in signal_rgb to
+ * signal some sort of event -- the colour tells the user what
+ * happened.
+ */
 static void prog_signal_set_leds(RGB_t *rgb) {
   for (uint8_t i = 0; i < led_cnt; i ++) {
     rgb[i].r = signal_rgb.r;
@@ -422,9 +398,7 @@ void loop(void) {
   prog_update();
 
   RGB_t ledsrgb[128];
-    prog_slow_set_leds(angle, ledsrgb);
 
-#if 0
   switch (prog) {
   case 0:
     prog_slow_set_leds(angle, ledsrgb);
@@ -432,7 +406,6 @@ void loop(void) {
   case 1:
     prog_fast_multi_set_leds(angle, ledsrgb);
     break;
-    ////
   case 2:
     prog_fast_single_set_leds(angle, ledsrgb);
     break;
@@ -440,7 +413,6 @@ void loop(void) {
     prog_signal_set_leds(ledsrgb);
     break;
   }
-#endif
 
   WS2811RGB(ledsrgb, led_cnt);
 }
