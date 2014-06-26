@@ -119,9 +119,10 @@ static void eeprom_load(void) {
     /* No saved config found, reset the config */
     config.magic = EEPROM_MAGIC;
 
+    config.prog = 0;
     config.gyro_mult = 1 << 14;
-    config.cf_acc[0] = 0.0f;
-    config.cf_acc[1] = 0.0f;
+    config.cf_acc[0] = 50.0f * 65536 * 16;
+    config.cf_acc[1] = -150.0f * 65536 * 16;
     config.cf_samples = 0;
   }
 
@@ -265,13 +266,51 @@ static void prog_signal_set_leds(RGB_t *rgb) {
     rgb[i].b = signal_rgb.b;
   }
 }
-#endif
+
+/* All LEDs off */
+static void prog_off_set_leds(uint16_t zero_angle, RGB_t *rgb) {
+  for (uint8_t i = 0; i < led_cnt; i ++) {
+    rgb[i].r = 0;
+    rgb[i].g = 0;
+    rgb[i].b = 0;
+  }
+}
+
+/* All LEDs full power */
+static void prog_on_set_leds(uint16_t zero_angle, RGB_t *rgb) {
+  for (uint8_t i = 0; i < led_cnt; i ++) {
+    rgb[i].r = 255;
+    rgb[i].g = 255;
+    rgb[i].b = 255;
+  }
+}
 
 static int16_t gyro_reading;
 static void gyro_update(void) {
   gyro_reading = accgyro.getRotationZ();
   gyro_reading -= (gyro_offset[2] + (1 << (CALIB_SHIFT - 1))) >> CALIB_SHIFT;
   gyro_reading = -gyro_reading;
+}
+
+static int16_t acc_reading[3];
+static int16_t acc[2];
+static int16_t cf_acc_int[2];
+static void acc_update(void) {
+  accgyro.getAcceleration(acc_reading + 0,
+        acc_reading + 1, acc_reading + 2);
+
+  acc[0] = acc_reading[0];
+  acc[1] = acc_reading[1];
+
+  /*
+   * If cf calibration is based on reasonably many samples, use it for
+   * acc reading correction in gyro drift correction.
+   */
+  if (config.cf_samples > 128) {
+    uint16_t factor = ((uint32_t) gyro_reading * gyro_reading) >> 20;
+    acc[0] -= cf_acc_int[0] * factor;
+    acc[1] -= cf_acc_int[1] * factor;
+  }
 }
 
 static uint16_t angle;
@@ -314,11 +353,19 @@ static uint16_t angle_update(void) {
   angle_accum += abs(step);
   iter_accum += 1;
   if (iter_accum > 100) {
-    int16_t acc_reading[3];
-    uint8_t correct = 0;
+    acc_update();
 
-    accgyro.getAcceleration(acc_reading + 0,
-        acc_reading + 1, acc_reading + 2);
+    uint16_t acc_angle = atan2(acc[0], acc[1]) *
+      (-32768.0f / M_PI);
+    int16_t err_angle = acc_angle - angle;
+
+    /* Correct the current angle */
+    angle += (err_angle + 8) >> 4;
+
+    /* Correct the gyro zero offset (angle integral) */
+    gyro_offset[2] += ((int32_t) err_angle << 5) / iter_accum;
+
+    iter_accum = 0;
 
     if (angle_accum > DEGS_TO_ANGLE(30.0f) &&
         abs(gyro_reading) > DEG_PER_S_TO_RATE(90.0f)) {
@@ -328,50 +375,30 @@ static uint16_t angle_update(void) {
        * only done every now and then, the overhead should be fine.
        * TODO: increase the sample weight with rotation rate?
        */
-      eeprom_config.cf_acc[0] += (acc_reading[0] / ((float) gyro_reading * gyro_reading) -
-        eeprom_config.cf_acc[0]) * 0.04;
-      eeprom_config.cf_acc[1] += (acc_reading[1] / ((float) gyro_reading * gyro_reading) -
-        eeprom_config.cf_acc[1]) * 0.04;
-      if (eeprom_config.cf_samples < 255)
-        eeprom_config.cf_samples += 1;
+      config.cf_acc[0] += (acc_reading[0] / ((float) gyro_reading * gyro_reading) -
+        config.cf_acc[0]) * 0.01f;
+      config.cf_acc[1] += (acc_reading[1] / ((float) gyro_reading * gyro_reading) -
+        config.cf_acc[1]) * 0.01f;
+      if (config.cf_samples < 255)
+        config.cf_samples += 1;
 
-      /*
-       * If cf calibration is based on reasonably many samples, use it for
-       * acc reading correction in gyro drift correction.
-       */
+      cf_acc_int[0] = config.cf_acc[0] * (65536.0f * 16.0f);
+      cf_acc_int[1] = config.cf_acc[1] * (65536.0f * 16.0f);
+
       /* TODO: add phase shift between the cf calibration and acc-based gyro
        * drift correction. */
-      if (eeprom_config.cf_samples > 50) {
-        acc_reading[0] -= eeprom_config.cf_acc[0];
-        acc_reading[1] -= eeprom_config.cf_acc[1];
-      }
 
-      correct = 1;
-    }
-
-    uint16_t acc_angle = atan2(acc_reading[0], acc_reading[1]) *
-      (-32768.0 / M_PI);
-    int16_t err_angle = acc_angle - angle;
-
-    angle += (err_angle + 4) >> 3;
-
-    if (correct) {
       /*
        * Update gyro rate multiplier, use 1/16 weight (the 14-bit
        * shift is reduced by 4 bits).
        * TODO: decrease weight with rotation rate? TODO: rounding?
        */
-      eeprom_config.gyro_mult += ((int32_t) err_angle << (14 - 4)) / angle_accum;
+      config.gyro_mult += ((int32_t) err_angle << (14 - 1)) / angle_accum;
 
-      ///if (eeprom_config.cf_samples == 100
-      //eeprom_save();
-
-      gyro_offset += ///
+      eeprom_save();
 
       angle_accum = 0;
     }
-
-    iter_accum = 0;
   }
 
   return angle;
@@ -387,7 +414,6 @@ static void prog_update(void) {
 
   prog = gyro_reading > DEG_PER_S_TO_RATE(400.0) ? 1 : 0;
   /* TODO: draw reverse if spinnig backwards? */
-  ///prog = 0;////
 }
 
 void loop(void) {
@@ -405,7 +431,10 @@ void loop(void) {
     prog_fast_multi_set_leds(angle, ledsrgb);
     break;
   case 2:
-    prog_fast_single_set_leds(angle, ledsrgb);
+    prog_off_set_leds(angle, ledsrgb);
+    break;
+  case 3:
+    prog_on_set_leds(angle, ledsrgb);
     break;
   case 100:
     prog_signal_set_leds(ledsrgb);
