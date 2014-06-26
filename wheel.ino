@@ -228,7 +228,6 @@ static void prog_fast_multi_set_leds(float zero_angle, RGB_t *rgb) {
     (uint32_t) angle_len * (65536uLL / (uint32_t) angle_len));
   static const int fontwidth = 8;
   static const int fontheight = 8;
-  static const uint8_t pxangle = angle_len / (label_len * fontwidth);
 
   for (uint8_t i = 0; i < led_cnt; i ++) {
     uint16_t angle = zero_angle - led_angle[i];
@@ -404,15 +403,79 @@ static uint16_t angle_update(void) {
   return angle;
 }
 
-/* TODO: gesture recognition */
+static uint8_t prog;
 static void prog_update(void) {
+  static uint8_t brakes = 0, braking = 0;
+  static uint16_t brake_millis = 0;
+  static int16_t prev_gyro = 0, brake_gyro = 0;
+  static int16_t gyro_diff_lpf = 0;
+
+  uint8_t now_braking = 0;
+
+  static uint16_t prev_millis = 0;
+
+  uint16_t now = millis();
+  uint16_t timediff = now - prev_millis;
+  prev_millis = now;
+
+  int16_t gyro_diff = gyro_reading - prev_gyro;
+  prev_gyro = gyro_reading;
+  gyro_diff_lpf += gyro_diff - ((gyro_diff_lpf + 8) >> 4);
+
+  /* Are we braking?  For now use hardcoded values + some deadband */
+  if (gyro_diff_lpf < -50)
+    now_braking = 1;
+  else if (gyro_diff_lpf > -20)
+    now_braking = 0;
+  else
+    now_braking = braking;
+
+  if (now_braking != braking) {
+    uint16_t millis_since;
+
+    millis_since = now - brake_millis;
+    brake_millis = now;
+
+    if (millis_since > 100 && millis_since < 400 &&
+        (brakes != 0 || braking)) {
+      brakes += 1;
+    } else {
+      /*
+       * If we've detected exactly three braking periods of given
+       * length (100-400ms) separated by periods of the similar
+       * length and then a 1 - 3s of no braking, switch to the
+       * next program.  If there were two breaks, switch one program
+       * back.
+       */
+      if (millis_since > 1000 && millis_since < 3000 ||
+          (brakes == 3 || brakes == 5)) {
+        if (brakes == 5) {
+          config.prog += 1;
+          if (config.prog >= 4)
+            config.prog = 0;
+        } else {
+          config.prog -= 1;
+          if ((int8_t) config.prog < 0)
+            config.prog = 3;
+        }
+      }
+      brakes = 0;
+    }
+    braking = now_braking;
+  }
+
   if (signal_cnt) {
     signal_cnt --;
     prog = 100;
     return;
   }
 
-  prog = gyro_reading > DEG_PER_S_TO_RATE(400.0) ? 1 : 0;
+  prog = config.prog;
+
+  /* Stop display the text label if spinning too slow or backwards */
+  if (prog == 1 && gyro_reading < DEG_PER_S_TO_RATE(300.0))
+    prog = 0;
+
   /* TODO: draw reverse if spinnig backwards? */
 }
 
