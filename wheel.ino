@@ -213,14 +213,14 @@ static void prog_slow_set_leds(uint16_t zero_angle, RGB_t *rgb) {
   for (uint8_t i = 0; i < led_cnt; i ++) {
     uint16_t angle = zero_angle - led_angle[i];
 
-    rgb[i].r = angle > DEGS_TO_ANGLE(180.0f) ? 100 : 0;
-    rgb[i].g = angle > DEGS_TO_ANGLE(180.0f) ? 100 : 0;
-    rgb[i].b = angle > DEGS_TO_ANGLE(180.0f) ? 100 : 0;
+    rgb[i].r = angle > DEGS_TO_ANGLE(180.0f) ? 255 : 0;
+    rgb[i].g = angle > DEGS_TO_ANGLE(180.0f) ? 255 : 0;
+    rgb[i].b = angle > DEGS_TO_ANGLE(180.0f) ? 255 : 0;
   }
 }
 
 /* Display hardcoded text */
-static void prog_fast_multi_set_leds(float zero_angle, RGB_t *rgb) {
+static void prog_fast_multi_set_leds(uint16_t zero_angle, RGB_t *rgb) {
   static const char *label = "Bicicritica ";
   static const int label_len = 12;
   static const uint16_t angle_len = DEGS_TO_ANGLE(180.0f);
@@ -447,7 +447,7 @@ static void prog_update(void) {
        * next program.  If there were two breaks, switch one program
        * back.
        */
-      if (millis_since > 1000 && millis_since < 3000 ||
+      if (millis_since > 1000 && millis_since < 3000 &&
           (brakes == 3 || brakes == 5)) {
         if (brakes == 5) {
           config.prog += 1;
