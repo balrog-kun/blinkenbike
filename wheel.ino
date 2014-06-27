@@ -284,6 +284,29 @@ static void prog_on_set_leds(uint16_t zero_angle, RGB_t *rgb) {
   }
 }
 
+/* Moving spiral shape */
+static void prog_spiral_set_leds(uint16_t zero_angle, RGB_t *rgb) {
+  for (uint8_t i = 0; i < led_cnt; i ++) {
+    uint16_t angle = zero_angle - led_angle[i];
+
+    uint16_t pos = angle -
+      (millis() << 4) +
+      ((uint32_t) led_dist[i] << 17) / full_dist;
+
+    uint8_t brightness = pos >> 6;
+    uint8_t blue = pos >> 15;
+    if (pos & (1 << 14))
+      brightness ^= 255;
+
+    /* Decrease "gamma", these LEDs are bright at low values */
+    brightness -= min(brightness, (brightness ^ 255) / 3);
+
+    rgb[i].r = blue ? 0 : brightness;
+    rgb[i].g = blue ? 0 : brightness;
+    rgb[i].b = brightness;
+  }
+}
+
 static int16_t gyro_reading;
 static void gyro_update(void) {
   gyro_reading = accgyro.getRotationZ();
@@ -451,12 +474,12 @@ static void prog_update(void) {
           (brakes == 3 || brakes == 5)) {
         if (brakes == 5) {
           config.prog += 1;
-          if (config.prog >= 4)
+          if (config.prog >= 5)
             config.prog = 0;
         } else {
           config.prog -= 1;
           if ((int8_t) config.prog < 0)
-            config.prog = 3;
+            config.prog = 4;
         }
       }
       brakes = 0;
@@ -498,6 +521,9 @@ void loop(void) {
     break;
   case 3:
     prog_on_set_leds(angle, ledsrgb);
+    break;
+  case 4:
+    prog_spiral_set_leds(angle, ledsrgb);
     break;
   case 100:
     prog_signal_set_leds(ledsrgb);
