@@ -374,18 +374,24 @@ static uint16_t angle_update(void) {
 
   angle_accum += abs(step);
   iter_accum += 1;
-  if (iter_accum > 100) {
+  if (iter_accum > 80) {
     acc_update();
+
+    uint32_t len = ((int32_t) acc[0] * acc[0]) +
+      ((int32_t) acc[1] * acc[1]);
+    uint8_t correct = len > 0x10000000 / 2 && len > 0x10000000 * 2;
 
     uint16_t acc_angle = atan2(acc[0], acc[1]) *
       (-32768.0f / M_PI);
     int16_t err_angle = acc_angle - angle;
 
     /* Correct the current angle */
-    angle += (err_angle + 8) >> 4;
+    if (correct)
+      angle += (err_angle + 8) >> 4;
 
     /* Correct the gyro zero offset (angle integral) */
-    gyro_offset[2] += ((int32_t) err_angle << 5) / iter_accum;
+    if (correct)
+      gyro_offset[2] += ((int32_t) err_angle << 5) / iter_accum;
 
     iter_accum = 0;
 
@@ -415,10 +421,25 @@ static uint16_t angle_update(void) {
        * shift is reduced by 4 bits).
        * TODO: decrease weight with rotation rate? TODO: rounding?
        */
-      config.gyro_mult += ((int32_t) err_angle << (14 - 1)) / angle_accum;
+      static uint16_t prev_acc_angle = 0;
+      static uint16_t prev_gyro_angle = 0;
+
+      int16_t gyro_velo = prev_gyro_angle - angle;
+      int16_t acc_velo = prev_acc_angle - acc_angle;
+      prev_gyro_angle = angle;
+      prev_acc_angle = acc_angle;
+
+      if (correct && !(((uint16_t) acc_velo ^ gyro_velo) & 0x8000) &&
+          angle_accum < DEGS_TO_ANGLE(150.0f))
+        config.gyro_mult += ((uint32_t) abs(acc_velo) - abs(gyro_velo)) << (14 - 4);
+//      config.gyro_mult += ((int32_t) err_angle << (14 - 4)) / angle_accum;
+
+      if (config.gyro_mult < 0x3200)
+        config.gyro_mult = 0x3200;
+      if (config.gyro_mult > 0x5000)
+        config.gyro_mult = 0x5000;
 
       eeprom_save();
-
       angle_accum = 0;
     }
   }
