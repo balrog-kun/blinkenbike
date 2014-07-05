@@ -210,6 +210,8 @@ void setup(void) {
 /* Text font data */
 extern const prog_uchar fontdata_8x8[];
 
+#define LED_ON 100
+
 /*
  * The functions below animate the LEDs in different ways
  * as the wheel turns.  Only one program is active at any
@@ -221,9 +223,9 @@ static void prog_slow_set_leds(uint16_t zero_angle, RGB_t *rgb) {
   for (uint8_t i = 0; i < led_cnt; i ++) {
     uint16_t angle = zero_angle - led_angle[i];
 
-    rgb[i].r = angle > DEGS_TO_ANGLE(180.0f) ? 255 : 0;
-    rgb[i].g = angle > DEGS_TO_ANGLE(180.0f) ? 255 : 0;
-    rgb[i].b = angle > DEGS_TO_ANGLE(180.0f) ? 255 : 0;
+    rgb[i].r = angle > DEGS_TO_ANGLE(180.0f) ? LED_ON : 0;
+    rgb[i].g = angle > DEGS_TO_ANGLE(180.0f) ? LED_ON : 0;
+    rgb[i].b = angle > DEGS_TO_ANGLE(180.0f) ? LED_ON : 0;
   }
 }
 
@@ -286,9 +288,9 @@ static void prog_off_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 /* All LEDs full power */
 static void prog_on_set_leds(uint16_t zero_angle, RGB_t *rgb) {
   for (uint8_t i = 0; i < led_cnt; i ++) {
-    rgb[i].r = 255;
-    rgb[i].g = 255;
-    rgb[i].b = 255;
+    rgb[i].r = LED_ON;
+    rgb[i].g = LED_ON;
+    rgb[i].b = LED_ON;
   }
 }
 
