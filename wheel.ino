@@ -389,7 +389,7 @@ static uint16_t angle_update(void) {
 
     uint32_t len = ((int32_t) acc[0] * acc[0]) +
       ((int32_t) acc[1] * acc[1]);
-    uint8_t correct = len > 0x10000000 / 2 && len > 0x10000000 * 2;
+    uint8_t correct = len > 0x10000000 / 2 && len < 0x10000000 * 2;
 
     uint16_t acc_angle = atan2(acc[0], acc[1]) *
       (-32768.0f / M_PI);
