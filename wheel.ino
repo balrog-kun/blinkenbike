@@ -112,8 +112,16 @@ static struct {
 static uint8_t signal_cnt;
 static RGB_t signal_rgb;
 
+/*
+ * Don't actually use this by default, seem to kill arduino
+ * boards left and right...
+ */
+//#define USE_EEPROM
+
 static void eeprom_load(void) {
-  /////eeprom_read_block(&config, NULL, sizeof(config));
+#ifdef USE_EEPROM
+  eeprom_read_block(&config, NULL, sizeof(config));
+#endif
 
   if (config.magic != EEPROM_MAGIC) {
     /* No saved config found, reset the config */
@@ -130,8 +138,7 @@ static void eeprom_load(void) {
 }
 
 static void eeprom_save(void) {
-  /* Not supported at this time */
-  return;
+#ifdef USE_EEPROM
   /* Check if there's any change */
 
 #define DIFF(f) abs(config.f - prev_config.f)
@@ -150,6 +157,7 @@ static void eeprom_save(void) {
   signal_rgb.r = 100;
   signal_rgb.g = 0;
   signal_rgb.b = 100;
+#endif
 }
 
 #define DEGS_TO_ANGLE(x) (uint16_t) (x / 180.0f * (1uLL << 15))
