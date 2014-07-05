@@ -128,7 +128,7 @@ static void eeprom_load(void) {
     config.magic = EEPROM_MAGIC;
 
     config.prog = 0;
-    config.gyro_mult = 1 << 14;
+    config.gyro_mult = 2 << 14;
     config.cf_acc[0] = 50.0f * 65536 * 16;
     config.cf_acc[1] = -150.0f * 65536 * 16;
     config.cf_samples = 0;
@@ -397,16 +397,16 @@ static uint16_t angle_update(void) {
 
     /* Correct the current angle */
     if (correct)
-      angle += (err_angle + 8) >> 4;
+      angle += (err_angle + 16) >> 5;
 
     /* Correct the gyro zero offset (angle integral) */
     if (correct)
-      gyro_offset[2] += ((int32_t) err_angle << 5) / iter_accum;
+      gyro_offset[2] += ((int32_t) err_angle << 3) / iter_accum;
 
     iter_accum = 0;
 
     if (angle_accum > DEGS_TO_ANGLE(30.0f) &&
-        abs(gyro_reading) > DEG_PER_S_TO_RATE(90.0f)) {
+        abs(gyro_reading) > DEG_PER_S_TO_RATE(70.0f)) {
       /*
        * Quite literally what is described in comment above.
        * Use floats so we don't have to worry about ranges.  Since this is
@@ -427,8 +427,8 @@ static uint16_t angle_update(void) {
        * drift correction. */
 
       /*
-       * Update gyro rate multiplier, use 1/16 weight (the 14-bit
-       * shift is reduced by 4 bits).
+       * Update gyro rate multiplier, use 1/32 weight (the 14-bit
+       * shift is reduced by 5 bits).
        * TODO: decrease weight with rotation rate? TODO: rounding?
        */
       static uint16_t prev_acc_angle = 0;
@@ -441,13 +441,12 @@ static uint16_t angle_update(void) {
 
       if (correct && !(((uint16_t) acc_velo ^ gyro_velo) & 0x8000) &&
           angle_accum < DEGS_TO_ANGLE(150.0f))
-        config.gyro_mult += ((uint32_t) abs(acc_velo) - abs(gyro_velo)) << (14 - 4);
-//      config.gyro_mult += ((int32_t) err_angle << (14 - 4)) / angle_accum;
+        config.gyro_mult += (((int32_t) abs(acc_velo) - abs(gyro_velo)) << (14 - 5)) / angle_accum;
 
-      if (config.gyro_mult < 0x3200)
-        config.gyro_mult = 0x3200;
-      if (config.gyro_mult > 0x5000)
-        config.gyro_mult = 0x5000;
+      if (config.gyro_mult < 0x2000)
+        config.gyro_mult = 0x2000;
+      if (config.gyro_mult > 0xc000)
+        config.gyro_mult = 0xc000;
 
       eeprom_save();
       angle_accum = 0;
