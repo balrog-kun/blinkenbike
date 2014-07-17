@@ -185,6 +185,7 @@ void setup(void) {
   accgyro.setI2CMasterModeEnabled(0);
   accgyro.setI2CBypassEnabled(1);
   accgyro.setFullScaleGyroRange(MPU60X0_GYRO_FS_2000);
+  accgyro.setFullScaleAccelRange(MPU60X0_ACCEL_FS_8);
   delay(5);
   zero_gyro();
 
@@ -483,7 +484,7 @@ static uint16_t angle_update(void) {
 
     uint32_t len = ((int32_t) acc[0] * acc[0]) +
       ((int32_t) acc[1] * acc[1]);
-    uint8_t correct = len > 0x10000000 / 2 && len < 0x10000000 * 2;
+    uint8_t correct = len > 0x1000000 / 2 && len < 0x1000000 * 2;
 
     uint16_t acc_angle = atan2(acc[0], acc[1]) *
       (-32768.0f / M_PI);
