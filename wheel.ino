@@ -497,7 +497,7 @@ static uint16_t angle_update(void) {
 
     /* Correct the gyro zero offset (angle integral) */
     if (correct)
-      gyro_offset[2] += ((int32_t) err_angle << 3) / iter_accum;
+      gyro_offset[2] += ((int32_t) err_angle << 2) / iter_accum;
 
 #if 0
     uint16_t tdiff = (now - time_prev) / 1000;
@@ -543,7 +543,8 @@ static uint16_t angle_update(void) {
 
       if (correct && !(((uint16_t) acc_velo ^ gyro_velo) & 0x8000) &&
           angle_accum < DEGS_TO_ANGLE(150.0f))
-        config.gyro_mult += (((int32_t) abs(acc_velo) - abs(gyro_velo)) << (14 - 5)) / angle_accum;
+        config.gyro_mult += (((int32_t) abs(acc_velo) - abs(gyro_velo)) <<
+            (14 - 5)) / angle_accum;
 
       if (config.gyro_mult < 0x2000)
         config.gyro_mult = 0x2000;
