@@ -403,7 +403,9 @@ static void gyro_update(void) opts;
 static void gyro_update(void) {
   gyro_reading = accgyro.getRotationZ();
   gyro_reading -= (gyro_offset[2] + (1 << (CALIB_SHIFT - 1))) >> CALIB_SHIFT;
+#ifndef REVERSE
   gyro_reading = -gyro_reading;
+#endif
 }
 
 static int16_t acc_reading[3];
@@ -441,17 +443,17 @@ static uint16_t angle_update(void) opts;
 static uint16_t angle_update(void) {
   unsigned long now = MICROS();
   static unsigned long prev = 0;
-  uint16_t timediff = now - prev;
+  uint32_t timediff = now - prev;
   prev = now;
 
 #define MULT_BITS 4
-  int16_t step = ((int32_t) gyro_reading * timediff *
-      (1 << MULT_BITS)) /
-    (int32_t) (360.0f * 16.4f * 1000000.0f / 65536.0f + 0.5f);
+  int16_t step = ((int32_t) gyro_reading * (int32_t) (timediff << MULT_BITS)) /
+    (int32_t) (360.0f * 16.4f * 1000000.0f / 65536.0f + 0.499f);
   /*            degs   lsb/deg    us/sec    lsb/360deg rounding */
 
   /* TODO: use optimised avr mult */
-  step = ((int32_t) step * config.gyro_mult) >> (14 + MULT_BITS);
+  step = ((int32_t) step * config.gyro_mult + (1 << (13 + MULT_BITS))) >>
+    (14 + MULT_BITS);
 
   angle += step;
 
