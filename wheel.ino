@@ -410,7 +410,17 @@ static void prog_spiral_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 	}
 }
 
+#if F_CPU == 16000000
+#define MICROS() (Timers::now() >> 4)
+#elif F_CPU == 8000000
+#define MICROS() (Timers::now() >> 3)
+#else
+#define MICROS() (Timers::now() / (F_CPU / 1000000))
+#endif
+
+/* Update gyro values and timestamps, used for gyro integration */
 static int16_t gyro_reading;
+static uint32_t now, timediff;
 static void gyro_update(void) opts;
 static void gyro_update(void) {
 	gyro_reading = accgyro.getRotationZ();
@@ -419,6 +429,11 @@ static void gyro_update(void) {
 #ifndef REVERSE
 	gyro_reading = -gyro_reading;
 #endif
+
+	static uint32_t prev = 0;
+	now = MICROS();
+	timediff = now - prev;
+	prev = now;
 }
 
 static int16_t acc_reading[3];
@@ -444,22 +459,9 @@ static void acc_update(void) {
 	}
 }
 
-#if F_CPU == 16000000
-#define MICROS() (Timers::now() >> 4)
-#elif F_CPU == 8000000
-#define MICROS() (Timers::now() >> 3)
-#else
-#define MICROS() (Timers::now() / (F_CPU / 1000000))
-#endif
-
 uint16_t angle;
 static uint16_t angle_update(void) opts;
 static uint16_t angle_update(void) {
-	unsigned long now = MICROS();
-	static unsigned long prev = 0;
-	uint32_t timediff = now - prev;
-	prev = now;
-
 #define MULT_BITS 4
 	int16_t step = ((int32_t) gyro_reading *
 			(int32_t) (timediff << MULT_BITS)) /
@@ -594,9 +596,9 @@ static void prog_update(void) {
 
 	static uint16_t prev_millis = 0;
 
-	uint16_t now = millis();
-	uint16_t timediff = now - prev_millis;
-	prev_millis = now;
+	uint16_t now_millis = now >> 10;
+	uint16_t timediff = now_millis - prev_millis;
+	prev_millis = now_millis;
 
 	int16_t gyro_diff = gyro_reading - prev_gyro;
 	prev_gyro = gyro_reading;
@@ -613,8 +615,8 @@ static void prog_update(void) {
 	if (now_braking != braking) {
 		uint16_t millis_since;
 
-		millis_since = now - brake_millis;
-		brake_millis = now;
+		millis_since = now_millis - brake_millis;
+		brake_millis = now_millis;
 
 		if (millis_since > 100 && millis_since < 400 &&
 				(brakes != 0 || braking)) {
