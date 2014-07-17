@@ -261,8 +261,8 @@ extern const uint8_t fontdata_8x8[];
  */
 
 /* Illuminate one half of the wheel disc */
-static void prog_slow_set_leds(uint16_t zero_angle, RGB_t *rgb) opts;
-static void prog_slow_set_leds(uint16_t zero_angle, RGB_t *rgb) {
+static void prog_half_set_leds(uint16_t zero_angle, RGB_t *rgb) opts;
+static void prog_half_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 	for (uint8_t i = 0; i < led_cnt; i ++) {
 		uint16_t angle = zero_angle - led_angle[i];
 
@@ -273,9 +273,9 @@ static void prog_slow_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 }
 
 /* Display hardcoded text */
-static void prog_fast_multi_set_leds(uint16_t zero_angle, RGB_t *rgb,
+static void prog_text12_set_leds(uint16_t zero_angle, RGB_t *rgb,
 		const char *label) opts;
-static void prog_fast_multi_set_leds(uint16_t zero_angle, RGB_t *rgb,
+static void prog_text12_set_leds(uint16_t zero_angle, RGB_t *rgb,
 		const char *label) {
 	/*
 	 * This is #if zeroed out because it's too slow for this particular
@@ -671,10 +671,10 @@ void loop(void) {
 
 	switch (prog) {
 	case 0:
-		prog_slow_set_leds(angle, ledsrgb);
+		prog_half_set_leds(angle, ledsrgb);
 		break;
 	case 1:
-		prog_fast_multi_set_leds(angle, ledsrgb, "Bicicritica ");
+		prog_text12_set_leds(angle, ledsrgb, "Bicicritica ");
 		break;
 	case 2:
 		prog_off_set_leds(angle, ledsrgb);
