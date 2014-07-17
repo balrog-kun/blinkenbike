@@ -235,8 +235,18 @@ static void prog_slow_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 }
 
 /* Display hardcoded text */
-static void prog_fast_multi_set_leds(uint16_t zero_angle, RGB_t *rgb) {
-  static const char *label = "Bicicritica ";
+static void prog_fast_multi_set_leds(uint16_t zero_angle, RGB_t *rgb,
+    const char *label) {
+  /*
+   * This is #if zeroed out because it's too slow for this particular
+   * use.  It's generic and nice because you can change the parameters
+   * relatively easily but it's also over 2x slower than the version
+   * with those same values hardcoded.  The atmega328 is quite slow
+   * at 16MHz, as an 8-bit mcu.  The version after #else is the same
+   * code with some basic optimisations, perhaps much more can be
+   * squeezed in.
+   */
+#if 0
   static const int label_len = 12;
   static const uint16_t angle_len = DEGS_TO_ANGLE(180.0f);
   static const uint16_t maxangle = min((uint32_t) 65535,
@@ -251,21 +261,50 @@ static void prog_fast_multi_set_leds(uint16_t zero_angle, RGB_t *rgb) {
     if (angle >= maxangle) {
       val = 0;
     } else {
-      uint16_t pxpos = angle / pxangle;
+      uint16_t pxpos = (uint32_t) angle * (label_len * fontwidth) / angle_len;
       chnum = (pxpos / fontwidth) % label_len;
-      char ch = label[chnum];
+      uint8_t ch = label[chnum];
       uint8_t x = pxpos % fontwidth;
-      uint8_t y = (int) 15 * (led_dist[i] - min_dist) / full_dist;
+      uint8_t y = (uint16_t) 15 * (led_dist[i] - min_dist) / full_dist;
 
-      val = y < (15 - fontheight) ? 0 :
-        (pgm_read_byte(&fontdata_8x8[ch * fontheight + (15 - 1 - y)]) >>
-	 (7 - x)) & 1;
+      val = (y < 15 - fontheight) ? 0 :
+        ((pgm_read_byte(&fontdata_8x8[(uint16_t) ch * fontheight + (15 - 1 - y)]) >>
+          (7 - x)) & 1);
     }
 
-    rgb[i].r = val ? 200 : 0;
-    rgb[i].g = (val && chnum) ? 200 : 0;
-    rgb[i].b = (val && chnum) ? 200 : 0;
+    rgb[i].r = val ? LED_ON : 0;
+    rgb[i].g = (val && chnum) ? LED_ON : 0;
+    rgb[i].b = (val && chnum) ? LED_ON : 0;
   }
+#else
+  static const int label_len = 12;
+  static const int fontwidth = 8;
+  static const int fontheight = 8;
+
+  for (uint8_t i = 0, y = 0; i < led_cnt; i ++, y ++) {
+    uint16_t angle = zero_angle - led_angle[i];
+
+    /* For len == 12 could use two shifts and a sum... */
+    /* Except shifts on AVR kinda suck too. */
+    uint16_t pxpos = ((uint32_t) angle * (label_len * fontwidth)) >> 15;
+    uint8_t x = pxpos & (fontwidth - 1);
+    uint8_t chnum = pxpos >> 3;
+    if (chnum >= 12)
+      chnum -= 12;
+    uint8_t ch = label[chnum];
+    if (y == 15)
+      y = 0;
+
+    if (y >= 15 - fontheight && ((pgm_read_byte(
+          &fontdata_8x8[(uint16_t) ch * fontheight + (15 - 1 - y)]) >>
+        (7 - x)) & 1)) {
+      rgb[i].r = LED_ON;
+      rgb[i].g = chnum ? LED_ON : 0;
+      rgb[i].b = chnum ? LED_ON : 0;
+    } else
+      rgb[i] = (RGB_t) { 0, 0, 0 };
+  }
+#endif
 }
 
 /*
@@ -557,7 +596,7 @@ void loop(void) {
     prog_slow_set_leds(angle, ledsrgb);
     break;
   case 1:
-    prog_fast_multi_set_leds(angle, ledsrgb);
+    prog_fast_multi_set_leds(angle, ledsrgb, "Bicicritica ");
     break;
   case 2:
     prog_off_set_leds(angle, ledsrgb);
