@@ -21,23 +21,23 @@ static MPU60X0 accgyro;
 static uint32_t gyro_offset[3];
 
 static void zero_gyro(void) {
-  int i;
-  int reading[6];
+	int i;
+	int reading[6];
 
-  gyro_offset[0] = 0;
-  gyro_offset[1] = 0;
-  gyro_offset[2] = 0;
+	gyro_offset[0] = 0;
+	gyro_offset[1] = 0;
+	gyro_offset[2] = 0;
 
 #define CALIB_SHIFT 7
-  for (i = 0; i < (1 << CALIB_SHIFT); i ++) {
-    accgyro.getMotion6(&reading[0], &reading[1], &reading[2], &reading[3],
-        &reading[4], &reading[5]);
+	for (i = 0; i < (1 << CALIB_SHIFT); i ++) {
+		accgyro.getMotion6(&reading[0], &reading[1], &reading[2],
+				&reading[3], &reading[4], &reading[5]);
 
-    gyro_offset[0] += reading[3];
-    gyro_offset[1] += reading[4];
-    gyro_offset[2] += reading[5];
-    delay(1);
-  }
+		gyro_offset[0] += reading[3];
+		gyro_offset[1] += reading[4];
+		gyro_offset[2] += reading[5];
+		delay(1);
+	}
 }
 
 /* Define the output function, using pin 2 on port C. */
@@ -104,12 +104,12 @@ struct led_strip_s {
 static struct {
 #define EEPROM_VER 1
 #define EEPROM_MAGIC (0x00abcdef + EEPROM_VER)
-  uint32_t magic;
+	uint32_t magic;
 
-  uint8_t prog;
-  uint16_t gyro_mult;
-  float cf_acc[2];
-  uint8_t cf_samples;
+	uint8_t prog;
+	uint16_t gyro_mult;
+	float cf_acc[2];
+	uint8_t cf_samples;
 } config, prev_config;
 
 static uint8_t signal_cnt;
@@ -123,43 +123,43 @@ static RGB_t signal_rgb;
 
 static void eeprom_load(void) {
 #ifdef USE_EEPROM
-  eeprom_read_block(&config, NULL, sizeof(config));
+	eeprom_read_block(&config, NULL, sizeof(config));
 #endif
 
-  if (config.magic != EEPROM_MAGIC) {
-    /* No saved config found, reset the config */
-    config.magic = EEPROM_MAGIC;
+	if (config.magic != EEPROM_MAGIC) {
+		/* No saved config found, reset the config */
+		config.magic = EEPROM_MAGIC;
 
-    config.prog = 0;
-    config.gyro_mult = 1 << 14;
-    config.cf_acc[0] = 50.0f * 65536 * 16;
-    config.cf_acc[1] = -150.0f * 65536 * 16;
-    config.cf_samples = 0;
-  }
+		config.prog = 0;
+		config.gyro_mult = 1 << 14;
+		config.cf_acc[0] = 50.0f * 65536 * 16;
+		config.cf_acc[1] = -150.0f * 65536 * 16;
+		config.cf_samples = 0;
+	}
 
-  prev_config = config;
+	prev_config = config;
 }
 
 static void eeprom_save(void) {
 #ifdef USE_EEPROM
-  /* Check if there's any change */
+	/* Check if there's any change */
 
 #define DIFF(f) abs(config.f - prev_config.f)
 #define DIFF_CHK(f) (abs(prev_config.f > 0.00001f) && \
-    abs((config.f - prev_config.f) / prev_config.f) > 0.1f)
+		abs((config.f - prev_config.f) / prev_config.f) > 0.1f)
 
-  if (!(/*DIFF_CHK(cf_acc[0]) || DIFF_CHK(cf_acc[1]) ||*/
-      DIFF(gyro_mult) > 40))
-    return;
+	if (!(/*DIFF_CHK(cf_acc[0]) || DIFF_CHK(cf_acc[1]) ||*/
+			DIFF(gyro_mult) < 40))
+		return;
 
-  eeprom_write_block(&config, NULL, sizeof(config));
+	eeprom_write_block(&config, NULL, sizeof(config));
 
-  prev_config = config;
+	prev_config = config;
 
-  signal_cnt = 100;
-  signal_rgb.r = 100;
-  signal_rgb.g = 0;
-  signal_rgb.b = 100;
+	signal_cnt = 100;
+	signal_rgb.r = 100;
+	signal_rgb.g = 0;
+	signal_rgb.b = 100;
 #endif
 }
 
@@ -170,55 +170,61 @@ extern int16_t acc[2];
 extern uint16_t angle;
 
 void setup(void) {
-  struct led_strip_s *s;
-  int i;
-  float x, y;
+	struct led_strip_s *s;
+	int i;
+	float x, y;
 
-  /* Deactivate internal pull-ups for twi as per note from atmega8 manual */
-  PORTC &= ~((1 << 4) | (1 << 5));
+	/*
+	 * Deactivate internal pull-ups for twi as per note from the
+	 * atmega8 manual.
+	 */
+	PORTC &= ~((1 << 4) | (1 << 5));
 
-  /* Switch to 400KHz I2C */
-  TWBR = ((F_CPU / 400000L) - 16) / 2;
+	/* Switch to 400KHz I2C */
+	TWBR = ((F_CPU / 400000L) - 16) / 2;
 
-  accgyro = MPU60X0(false, MPU60X0_DEFAULT_ADDRESS);
-  accgyro.initialize();
-  accgyro.setI2CMasterModeEnabled(0);
-  accgyro.setI2CBypassEnabled(1);
-  accgyro.setFullScaleGyroRange(MPU60X0_GYRO_FS_2000);
-  accgyro.setFullScaleAccelRange(MPU60X0_ACCEL_FS_8);
-  delay(5);
-  zero_gyro();
+	accgyro = MPU60X0(false, MPU60X0_DEFAULT_ADDRESS);
+	accgyro.initialize();
+	accgyro.setI2CMasterModeEnabled(0);
+	accgyro.setI2CBypassEnabled(1);
+	accgyro.setFullScaleGyroRange(MPU60X0_GYRO_FS_2000);
+	accgyro.setFullScaleAccelRange(MPU60X0_ACCEL_FS_8);
+	delay(5);
+	zero_gyro();
 
-  /* Initialise LED stuff, precalculate angles */
-  LED_DDR |= 1 << LED_PIN;
-  LED_PORT &= ~(1 << LED_PIN);
+	/* Initialise LED stuff, precalculate angles */
+	LED_DDR |= 1 << LED_PIN;
+	LED_PORT &= ~(1 << LED_PIN);
 
-  led_cnt = 0;
-  for (s = &strips[0]; s->count; s ++) {
-    for (i = 0; i < s->count; i ++) {
-      x = s->x0 + (s->x1 - s->x0) * i / (float) (s->count - 1);
-      y = s->y0 + (s->y1 - s->y0) * i / (float) (s->count - 1);
+	led_cnt = 0;
+	for (s = &strips[0]; s->count; s ++) {
+		for (i = 0; i < s->count; i ++) {
+			x = s->x0 + (s->x1 - s->x0) * i /
+				(float) (s->count - 1);
+			y = s->y0 + (s->y1 - s->y0) * i /
+				(float) (s->count - 1);
 
-      led_dist[led_cnt] =
-        sqrt((float) x * x + (float) y * y) / DIST_MAX * 127.0;
-      led_angle[led_cnt] = 32768L - (uint16_t)
-        ((atan2(x, y) * (32768.0 / M_PI)));
-      led_cnt ++;
-    }
-  }
-  min_dist = led_dist[0];
-  full_dist = led_dist[14] - led_dist[0];
+			led_dist[led_cnt] =
+				sqrt((float) x * x + (float) y * y) /
+				DIST_MAX * 127.0;
+			led_angle[led_cnt] = 32768L - (uint16_t)
+				((atan2(x, y) * (32768.0 / M_PI)));
+			led_cnt ++;
+		}
+	}
+	min_dist = led_dist[0];
+	full_dist = led_dist[14] - led_dist[0];
 
-  eeprom_load();
+	eeprom_load();
 
-  /* Accelerometer-based rough initial angle */
-  acc_update();
-  angle = atan2(acc[0], acc[1]) * (-32768.0f / M_PI);
+	/* Accelerometer-based rough initial angle */
+	acc_update();
+	angle = atan2(acc[0], acc[1]) * (-32768.0f / M_PI);
 
-  /* Must re-init because Arduino init clobbers Timers::init constructor */
-  Timers::begin();
+	/* Must re-init because Arduino init clobbers the Timers constructor */
+	Timers::begin();
 
-  Serial.begin(115200);
+	Serial.begin(115200);
 }
 
 /*
@@ -257,87 +263,92 @@ extern const uint8_t fontdata_8x8[];
 /* Illuminate one half of the wheel disc */
 static void prog_slow_set_leds(uint16_t zero_angle, RGB_t *rgb) opts;
 static void prog_slow_set_leds(uint16_t zero_angle, RGB_t *rgb) {
-  for (uint8_t i = 0; i < led_cnt; i ++) {
-    uint16_t angle = zero_angle - led_angle[i];
+	for (uint8_t i = 0; i < led_cnt; i ++) {
+		uint16_t angle = zero_angle - led_angle[i];
 
-    rgb[i].r = angle > DEGS_TO_ANGLE(180.0f) ? LED_ON : 0;
-    rgb[i].g = angle > DEGS_TO_ANGLE(180.0f) ? LED_ON : 0;
-    rgb[i].b = angle > DEGS_TO_ANGLE(180.0f) ? LED_ON : 0;
-  }
+		rgb[i].r = angle > DEGS_TO_ANGLE(180.0f) ? LED_ON : 0;
+		rgb[i].g = angle > DEGS_TO_ANGLE(180.0f) ? LED_ON : 0;
+		rgb[i].b = angle > DEGS_TO_ANGLE(180.0f) ? LED_ON : 0;
+	}
 }
 
 /* Display hardcoded text */
 static void prog_fast_multi_set_leds(uint16_t zero_angle, RGB_t *rgb,
-    const char *label) opts;
+		const char *label) opts;
 static void prog_fast_multi_set_leds(uint16_t zero_angle, RGB_t *rgb,
-    const char *label) {
-  /*
-   * This is #if zeroed out because it's too slow for this particular
-   * use.  It's generic and nice because you can change the parameters
-   * relatively easily but it's also over 2x slower than the version
-   * with those same values hardcoded.  The atmega328 is quite slow
-   * at 16MHz, as an 8-bit mcu.  The version after #else is the same
-   * code with some basic optimisations, perhaps much more can be
-   * squeezed in.
-   */
+		const char *label) {
+	/*
+	 * This is #if zeroed out because it's too slow for this particular
+	 * use.  It's generic and nice because you can change the parameters
+	 * relatively easily but it's also over 2x slower than the version
+	 * with those same values hardcoded.  The atmega328 is quite slow
+	 * at 16MHz, as an 8-bit mcu.  The version after #else is the same
+	 * code with some basic optimisations, perhaps much more can be
+	 * squeezed in.
+	 */
 #if 0
-  static const int label_len = 12;
-  static const uint16_t angle_len = DEGS_TO_ANGLE(180.0f);
-  static const uint16_t maxangle = min((uint32_t) 65535,
-    (uint32_t) angle_len * (65536uLL / (uint32_t) angle_len));
-  static const int fontwidth = 8;
-  static const int fontheight = 8;
+	static const int label_len = 12;
+	static const uint16_t angle_len = DEGS_TO_ANGLE(180.0f);
+	static const uint16_t maxangle = min((uint32_t) 65535,
+		(uint32_t) angle_len * (65536uLL / (uint32_t) angle_len));
+	static const int fontwidth = 8;
+	static const int fontheight = 8;
 
-  for (uint8_t i = 0; i < led_cnt; i ++) {
-    uint16_t angle = zero_angle - led_angle[i];
-    uint8_t val, chnum;
+	for (uint8_t i = 0; i < led_cnt; i ++) {
+		uint16_t angle = zero_angle - led_angle[i];
+		uint8_t val, chnum;
 
-    if (angle >= maxangle) {
-      val = 0;
-    } else {
-      uint16_t pxpos = (uint32_t) angle * (label_len * fontwidth) / angle_len;
-      chnum = (pxpos / fontwidth) % label_len;
-      uint8_t ch = label[chnum];
-      uint8_t x = pxpos % fontwidth;
-      uint8_t y = (uint16_t) 15 * (led_dist[i] - min_dist) / full_dist;
+		if (angle >= maxangle) {
+			val = 0;
+		} else {
+			uint16_t pxpos = (uint32_t) angle *
+				(label_len * fontwidth) / angle_len;
+			chnum = (pxpos / fontwidth) % label_len;
+			uint8_t ch = label[chnum];
+			uint8_t x = pxpos % fontwidth;
+			uint8_t y = (uint16_t) 15 * (led_dist[i] - min_dist) /
+				full_dist;
 
-      val = (y < 15 - fontheight) ? 0 :
-        ((pgm_read_byte(&fontdata_8x8[(uint16_t) ch * fontheight + (15 - 1 - y)]) >>
-          (7 - x)) & 1);
-    }
+			val = (y < 15 - fontheight) ? 0 :
+				((pgm_read_byte(&fontdata_8x8[(uint16_t) ch *
+						fontheight + (15 - 1 - y)]) >>
+				  (7 - x)) & 1);
+		}
 
-    rgb[i].r = val ? LED_ON : 0;
-    rgb[i].g = (val && chnum) ? LED_ON : 0;
-    rgb[i].b = (val && chnum) ? LED_ON : 0;
-  }
+		rgb[i].r = val ? LED_ON : 0;
+		rgb[i].g = (val && chnum) ? LED_ON : 0;
+		rgb[i].b = (val && chnum) ? LED_ON : 0;
+	}
 #else
-  static const int label_len = 12;
-  static const int fontwidth = 8;
-  static const int fontheight = 8;
+	static const int label_len = 12;
+	static const int fontwidth = 8;
+	static const int fontheight = 8;
 
-  for (uint8_t i = 0, y = 0; i < led_cnt; i ++, y ++) {
-    uint16_t angle = zero_angle - led_angle[i];
+	for (uint8_t i = 0, y = 0; i < led_cnt; i ++, y ++) {
+		uint16_t angle = zero_angle - led_angle[i];
 
-    /* For len == 12 could use two shifts and a sum... */
-    /* Except shifts on AVR kinda suck too. */
-    uint16_t pxpos = ((uint32_t) angle * (label_len * fontwidth)) >> 15;
-    uint8_t x = pxpos & (fontwidth - 1);
-    uint8_t chnum = pxpos >> 3;
-    if (chnum >= 12)
-      chnum -= 12;
-    uint8_t ch = label[chnum];
-    if (y == 15)
-      y = 0;
+		/* For len == 12 could use two shifts and a sum... */
+		/* Except shifts on AVR kinda suck too. */
+		uint16_t pxpos = ((uint32_t) angle *
+				(label_len * fontwidth)) >> 15;
+		uint8_t x = pxpos & (fontwidth - 1);
+		uint8_t chnum = pxpos >> 3;
+		if (chnum >= 12)
+			chnum -= 12;
+		uint8_t ch = label[chnum];
+		if (y == 15)
+			y = 0;
 
-    if (y >= 15 - fontheight && ((pgm_read_byte(
-          &fontdata_8x8[(uint16_t) ch * fontheight + (15 - 1 - y)]) >>
-        (7 - x)) & 1)) {
-      rgb[i].r = LED_ON;
-      rgb[i].g = chnum ? LED_ON : 0;
-      rgb[i].b = chnum ? LED_ON : 0;
-    } else
-      rgb[i] = (RGB_t) { 0, 0, 0 };
-  }
+		if (y >= 15 - fontheight &&
+				((pgm_read_byte(&fontdata_8x8[(uint16_t) ch *
+						fontheight + (15 - 1 - y)]) >>
+				  (7 - x)) & 1)) {
+			rgb[i].r = LED_ON;
+			rgb[i].g = chnum ? LED_ON : 0;
+			rgb[i].b = chnum ? LED_ON : 0;
+		} else
+			rgb[i] = (RGB_t) { 0, 0, 0 };
+	}
 #endif
 }
 
@@ -348,64 +359,65 @@ static void prog_fast_multi_set_leds(uint16_t zero_angle, RGB_t *rgb,
  */
 static void prog_signal_set_leds(RGB_t *rgb) opts;
 static void prog_signal_set_leds(RGB_t *rgb) {
-  for (uint8_t i = 0; i < led_cnt; i ++) {
-    rgb[i].r = signal_rgb.r;
-    rgb[i].g = signal_rgb.g;
-    rgb[i].b = signal_rgb.b;
-  }
+	for (uint8_t i = 0; i < led_cnt; i ++) {
+		rgb[i].r = signal_rgb.r;
+		rgb[i].g = signal_rgb.g;
+		rgb[i].b = signal_rgb.b;
+	}
 }
 
 /* All LEDs off */
 static void prog_off_set_leds(uint16_t zero_angle, RGB_t *rgb) opts;
 static void prog_off_set_leds(uint16_t zero_angle, RGB_t *rgb) {
-  for (uint8_t i = 0; i < led_cnt; i ++) {
-    rgb[i].r = 0;
-    rgb[i].g = 0;
-    rgb[i].b = 0;
-  }
+	for (uint8_t i = 0; i < led_cnt; i ++) {
+		rgb[i].r = 0;
+		rgb[i].g = 0;
+		rgb[i].b = 0;
+	}
 }
 
 /* All LEDs full power */
 static void prog_on_set_leds(uint16_t zero_angle, RGB_t *rgb) opts;
 static void prog_on_set_leds(uint16_t zero_angle, RGB_t *rgb) {
-  for (uint8_t i = 0; i < led_cnt; i ++) {
-    rgb[i].r = LED_ON;
-    rgb[i].g = LED_ON;
-    rgb[i].b = LED_ON;
-  }
+	for (uint8_t i = 0; i < led_cnt; i ++) {
+		rgb[i].r = LED_ON;
+		rgb[i].g = LED_ON;
+		rgb[i].b = LED_ON;
+	}
 }
 
 /* Moving spiral shape */
 static void prog_spiral_set_leds(uint16_t zero_angle, RGB_t *rgb) opts;
 static void prog_spiral_set_leds(uint16_t zero_angle, RGB_t *rgb) {
-  for (uint8_t i = 0; i < led_cnt; i ++) {
-    uint16_t angle = zero_angle - led_angle[i];
+	for (uint8_t i = 0; i < led_cnt; i ++) {
+		uint16_t angle = zero_angle - led_angle[i];
 
-    uint16_t pos = angle -
-      (millis() << 4) +
-      ((uint32_t) led_dist[i] << 17) / full_dist;
+		uint16_t pos = angle -
+			(millis() << 4) +
+			((uint32_t) led_dist[i] << 17) / full_dist;
 
-    uint8_t brightness = pos >> 6;
-    uint8_t blue = pos >> 15;
-    if (pos & (1 << 14))
-      brightness ^= 255;
+		uint8_t brightness = pos >> 6;
+		uint8_t blue = pos >> 15;
+		if (pos & (1 << 14))
+			brightness ^= 255;
 
-    /* Decrease "gamma", these LEDs are bright at low values */
-    brightness -= min(brightness, (brightness ^ 255) / 3);
+		/* Decrease "gamma", these LEDs are bright at low values */
+		brightness -= min(brightness, (brightness ^ 255) / 3);
 
-    rgb[i].r = blue ? 0 : brightness;
-    rgb[i].g = blue ? 0 : brightness;
-    rgb[i].b = brightness;
-  }
+		rgb[i].r = blue ? 0 : brightness;
+		rgb[i].g = blue ? 0 : brightness;
+		rgb[i].b = brightness;
+	}
 }
 
 static int16_t gyro_reading;
 static void gyro_update(void) opts;
 static void gyro_update(void) {
-  gyro_reading = accgyro.getRotationZ();
-  gyro_reading -= (gyro_offset[2] + (1 << (CALIB_SHIFT - 1))) >> CALIB_SHIFT;
+	gyro_reading = accgyro.getRotationZ();
+	gyro_reading -= (gyro_offset[2] + (1 << (CALIB_SHIFT - 1))) >>
+		CALIB_SHIFT;
 #ifndef REVERSE
-  gyro_reading = -gyro_reading;
+	gyro_reading = -gyro_reading;
 #endif
 }
 
@@ -414,21 +426,22 @@ int16_t acc[2];
 static int16_t cf_acc_int[2];
 static void acc_update(void) opts;
 static void acc_update(void) {
-  accgyro.getAcceleration(acc_reading + 0,
-        acc_reading + 1, acc_reading + 2);
+	accgyro.getAcceleration(acc_reading + 0,
+			acc_reading + 1, acc_reading + 2);
 
-  acc[0] = acc_reading[0];
-  acc[1] = acc_reading[1];
+	acc[0] = acc_reading[0];
+	acc[1] = acc_reading[1];
 
-  /*
-   * If cf calibration is based on reasonably many samples, use it for
-   * acc reading correction in gyro drift correction.
-   */
-  if (config.cf_samples > 128) {
-    uint16_t factor = ((uint32_t) gyro_reading * gyro_reading) >> 20;
-    acc[0] -= cf_acc_int[0] * factor;
-    acc[1] -= cf_acc_int[1] * factor;
-  }
+	/*
+	 * If cf calibration is based on reasonably many samples, use it for
+	 * acc reading correction in gyro drift correction.
+	 */
+	if (config.cf_samples > 128) {
+		uint16_t factor =
+			((uint32_t) gyro_reading * gyro_reading) >> 20;
+		acc[0] -= cf_acc_int[0] * factor;
+		acc[1] -= cf_acc_int[1] * factor;
+	}
 }
 
 #if F_CPU == 16000000
@@ -442,228 +455,238 @@ static void acc_update(void) {
 uint16_t angle;
 static uint16_t angle_update(void) opts;
 static uint16_t angle_update(void) {
-  unsigned long now = MICROS();
-  static unsigned long prev = 0;
-  uint32_t timediff = now - prev;
-  prev = now;
+	unsigned long now = MICROS();
+	static unsigned long prev = 0;
+	uint32_t timediff = now - prev;
+	prev = now;
 
 #define MULT_BITS 4
-  int16_t step = ((int32_t) gyro_reading * (int32_t) (timediff << MULT_BITS)) /
-    (int32_t) (360.0f * 16.4f * 1000000.0f / 65536.0f + 0.499f);
-  /*            degs   lsb/deg    us/sec    lsb/360deg rounding */
+	int16_t step = ((int32_t) gyro_reading *
+			(int32_t) (timediff << MULT_BITS)) /
+		(int32_t) (360.0f * 16.4f * 1000000.0f / 65536.0f + 0.499f);
+	/*	            degs   lsb/deg    us/sec    lsb/360deg rounding */
 
-  /* TODO: use optimised avr mult */
-  step = ((int32_t) step * config.gyro_mult + (1 << (13 + MULT_BITS))) >>
-    (14 + MULT_BITS);
+	/* TODO: use optimised avr mult */
+	step = ((int32_t) step * config.gyro_mult + (1 << (13 + MULT_BITS))) >>
+		(14 + MULT_BITS);
 
-  angle += step;
+	angle += step;
 
-  /*
-   * Centrifugal force estimation.  We sum (acceleration vector / rotation
-   * rate ^ 2) over time -- at least a few full turns at a high enough
-   * rotation rate, to find the direction of the force and the relation
-   * to rotation rate.  This way, knowing the rotation rate at any later point,
-   * we can calculate the centrifugal force vector and subtract it from
-   * accelerometer readings in order to better approximate the gravity
-   * vector.
-   *
-   * The MPU6050 gyro has a max range of 2000deg/s and this is a slightly
-   * faster than we expect a bicycle wheel to be able to turn, so we assume
-   * a practical range of our centrifugal force calculations to be
-   * 90deg/s - 2000deg/s.  We set a lower limit too because the force is
-   * proportional to the square of rotation rate and below a given value
-   * the force should be negligible.
-   */
-  static uint16_t angle_accum;
-  static uint8_t iter_accum;
-  static uint32_t time_prev;
+	/*
+	 * Centrifugal force estimation.  We sum (acceleration vector /
+	 * rotation rate ^ 2) over time -- at least a few full turns at a
+	 * high enough rotation rate, to find the direction of the force
+	 * and the relation to rotation rate.  This way, knowing the rotation
+	 * rate at any later point, we can calculate the centrifugal force
+	 * vector and subtract it from accelerometer readings in order to
+	 * better approximate the gravity vector.
+	 *
+	 * The MPU6050 gyro has a max range of 2000deg/s and this is a slightly
+	 * faster than we expect a bicycle wheel to be able to turn, so we
+	 * assume a practical range of our centrifugal force calculations to be
+	 * 90deg/s - 2000deg/s.  We set a lower limit too because the force is
+	 * proportional to the square of rotation rate and below a given value
+	 * the force should be negligible.
+	 */
+	static uint16_t angle_accum;
+	static uint8_t iter_accum;
+	static uint32_t time_prev;
 
-  angle_accum += abs(step);
-  iter_accum += 1;
-  if (iter_accum > 100 || now - time_prev > 150000) {
-    acc_update();
+	angle_accum += abs(step);
+	iter_accum += 1;
+	if (iter_accum > 100 || now - time_prev > 150000) {
+		acc_update();
 
-    uint32_t len = ((int32_t) acc[0] * acc[0]) +
-      ((int32_t) acc[1] * acc[1]);
-    uint8_t correct = len > 0x1000000 / 2 && len < 0x1000000 * 2;
+		uint32_t len = ((int32_t) acc[0] * acc[0]) +
+			((int32_t) acc[1] * acc[1]);
+		uint8_t correct = len > 0x1000000 / 2 && len < 0x1000000 * 2;
 
-    uint16_t acc_angle = atan2(acc[0], acc[1]) *
-      (-32768.0f / M_PI);
-    int16_t err_angle = acc_angle - angle;
+		uint16_t acc_angle = atan2(acc[0], acc[1]) *
+			(-32768.0f / M_PI);
+		int16_t err_angle = acc_angle - angle;
 
-    /* Correct the current angle */
-    if (correct)
-      angle += (err_angle + 16) >> 5;
+		/* Correct the current angle */
+		if (correct)
+			angle += (err_angle + 16) >> 5;
 
-    /* Correct the gyro zero offset (angle integral) */
-    if (correct)
-      gyro_offset[2] += ((int32_t) err_angle << 2) / iter_accum;
+		/* Correct the gyro zero offset (angle integral) */
+		if (correct)
+			gyro_offset[2] +=
+				((int32_t) err_angle << 2) / iter_accum;
 
 #if 0
-    uint16_t tdiff = (now - time_prev) / 1000;
-    Serial.print((uint32_t) 1000 * iter_accum / tdiff);
-    Serial.write("fps\r\n");
+		uint16_t tdiff = (now - time_prev) / 1000;
+		Serial.print((uint32_t) 1000 * iter_accum / tdiff);
+		Serial.write("fps\r\n");
 #endif
-    time_prev = now;
-    iter_accum = 0;
+		time_prev = now;
+		iter_accum = 0;
 
-    if (angle_accum > DEGS_TO_ANGLE(30.0f) &&
-        abs(gyro_reading) > DEG_PER_S_TO_RATE(70.0f)) {
-      /*
-       * Quite literally what is described in comment above.
-       * Use floats so we don't have to worry about ranges.  Since this is
-       * only done every now and then, the overhead should be fine.
-       * TODO: increase the sample weight with rotation rate?
-       */
-      config.cf_acc[0] += (acc_reading[0] / ((float) gyro_reading * gyro_reading) -
-        config.cf_acc[0]) * 0.01f;
-      config.cf_acc[1] += (acc_reading[1] / ((float) gyro_reading * gyro_reading) -
-        config.cf_acc[1]) * 0.01f;
-      if (config.cf_samples < 255)
-        config.cf_samples += 1;
+		if (angle_accum > DEGS_TO_ANGLE(30.0f) &&
+				abs(gyro_reading) > DEG_PER_S_TO_RATE(70.0f)) {
+			/*
+			 * Quite literally what is described in comment above.
+			 * Use floats so we don't have to worry about ranges.
+			 * Since this is only done every now and then, the
+			 * overhead should be fine.
+			 * TODO: increase the sample weight with rotation rate?
+			 */
+			config.cf_acc[0] += (acc_reading[0] /
+					((float) gyro_reading * gyro_reading) -
+					config.cf_acc[0]) * 0.01f;
+			config.cf_acc[1] += (acc_reading[1] /
+					((float) gyro_reading * gyro_reading) -
+					config.cf_acc[1]) * 0.01f;
+			if (config.cf_samples < 255)
+				config.cf_samples += 1;
 
-      cf_acc_int[0] = config.cf_acc[0] * (65536.0f * 16.0f);
-      cf_acc_int[1] = config.cf_acc[1] * (65536.0f * 16.0f);
+			cf_acc_int[0] = config.cf_acc[0] * (65536.0f * 16.0f);
+			cf_acc_int[1] = config.cf_acc[1] * (65536.0f * 16.0f);
 
-      /* TODO: add phase shift between the cf calibration and acc-based gyro
-       * drift correction. */
+			/*
+			 * TODO: add phase shift between the cf calibration
+			 * and acc-based gyro drift correction.
+			 */
 
-      /*
-       * Update gyro rate multiplier, use 1/32 weight (the 14-bit
-       * shift is reduced by 5 bits).
-       * TODO: decrease weight with rotation rate? TODO: rounding?
-       */
-      static uint16_t prev_acc_angle = 0;
-      static uint16_t prev_gyro_angle = 0;
+			/*
+			 * Update gyro rate multiplier, use 1/32 weight (the
+			 * 14-bit shift is reduced by 5 bits).
+			 * TODO: decrease weight with rotation rate?
+			 * TODO: rounding?
+			 */
+			static uint16_t prev_acc_angle = 0;
+			static uint16_t prev_gyro_angle = 0;
 
-      int16_t gyro_velo = prev_gyro_angle - angle;
-      int16_t acc_velo = prev_acc_angle - acc_angle;
-      prev_gyro_angle = angle;
-      prev_acc_angle = acc_angle;
+			int16_t gyro_velo = prev_gyro_angle - angle;
+			int16_t acc_velo = prev_acc_angle - acc_angle;
+			prev_gyro_angle = angle;
+			prev_acc_angle = acc_angle;
 
-      if (correct && !(((uint16_t) acc_velo ^ gyro_velo) & 0x8000) &&
-          angle_accum < DEGS_TO_ANGLE(150.0f))
-        config.gyro_mult += (((int32_t) abs(acc_velo) - abs(gyro_velo)) <<
-            (14 - 5)) / angle_accum;
+			if (correct && !(((uint16_t) acc_velo ^ gyro_velo) &
+						0x8000) &&
+					angle_accum < DEGS_TO_ANGLE(150.0f))
+				config.gyro_mult += (((int32_t) abs(acc_velo) -
+							abs(gyro_velo)) <<
+						(14 - 5)) / angle_accum;
 
-      if (config.gyro_mult < 0x2000)
-        config.gyro_mult = 0x2000;
-      if (config.gyro_mult > 0xc000)
-        config.gyro_mult = 0xc000;
+			if (config.gyro_mult < 0x2000)
+				config.gyro_mult = 0x2000;
+			if (config.gyro_mult > 0xc000)
+				config.gyro_mult = 0xc000;
 
-      eeprom_save();
-      angle_accum = 0;
-    }
-  }
+			eeprom_save();
+			angle_accum = 0;
+		}
+	}
 
-  return angle;
+	return angle;
 }
 
 static uint8_t prog;
 static void prog_update(void) opts;
 static void prog_update(void) {
-  static uint8_t brakes = 0, braking = 0;
-  static uint16_t brake_millis = 0;
-  static int16_t prev_gyro = 0, brake_gyro = 0;
-  static int16_t gyro_diff_lpf = 0;
+	static uint8_t brakes = 0, braking = 0;
+	static uint16_t brake_millis = 0;
+	static int16_t prev_gyro = 0, brake_gyro = 0;
+	static int16_t gyro_diff_lpf = 0;
 
-  uint8_t now_braking = 0;
+	uint8_t now_braking = 0;
 
-  static uint16_t prev_millis = 0;
+	static uint16_t prev_millis = 0;
 
-  uint16_t now = millis();
-  uint16_t timediff = now - prev_millis;
-  prev_millis = now;
+	uint16_t now = millis();
+	uint16_t timediff = now - prev_millis;
+	prev_millis = now;
 
-  int16_t gyro_diff = gyro_reading - prev_gyro;
-  prev_gyro = gyro_reading;
-  gyro_diff_lpf += gyro_diff - ((gyro_diff_lpf + 8) >> 4);
+	int16_t gyro_diff = gyro_reading - prev_gyro;
+	prev_gyro = gyro_reading;
+	gyro_diff_lpf += gyro_diff - ((gyro_diff_lpf + 8) >> 4);
 
-  /* Are we braking?  For now use hardcoded values + some deadband */
-  if (gyro_diff_lpf < -50)
-    now_braking = 1;
-  else if (gyro_diff_lpf > -20)
-    now_braking = 0;
-  else
-    now_braking = braking;
+	/* Are we braking?  For now use hardcoded values + some deadband */
+	if (gyro_diff_lpf < -50)
+		now_braking = 1;
+	else if (gyro_diff_lpf > -20)
+		now_braking = 0;
+	else
+		now_braking = braking;
 
-  if (now_braking != braking) {
-    uint16_t millis_since;
+	if (now_braking != braking) {
+		uint16_t millis_since;
 
-    millis_since = now - brake_millis;
-    brake_millis = now;
+		millis_since = now - brake_millis;
+		brake_millis = now;
 
-    if (millis_since > 100 && millis_since < 400 &&
-        (brakes != 0 || braking)) {
-      brakes += 1;
-    } else {
-      /*
-       * If we've detected exactly three braking periods of given
-       * length (100-400ms) separated by periods of the similar
-       * length and then a 1 - 3s of no braking, switch to the
-       * next program.  If there were two breaks, switch one program
-       * back.
-       */
-      if (millis_since > 1000 && millis_since < 3000 &&
-          (brakes == 3 || brakes == 5)) {
-        if (brakes == 5) {
-          config.prog += 1;
-          if (config.prog >= 5)
-            config.prog = 0;
-        } else {
-          config.prog -= 1;
-          if ((int8_t) config.prog < 0)
-            config.prog = 4;
-        }
-      }
-      brakes = 0;
-    }
-    braking = now_braking;
-  }
+		if (millis_since > 100 && millis_since < 400 &&
+				(brakes != 0 || braking)) {
+			brakes += 1;
+		} else {
+			/*
+			 * If we've detected exactly three braking periods of
+			 * given length (100-400ms) separated by periods of
+			 * the similar length and then a 1 - 3s of no braking,
+			 * switch to the next program.  If there were two
+			 * breaks, switch one program back.
+			 */
+			if (millis_since > 1000 && millis_since < 3000 &&
+					(brakes == 3 || brakes == 5)) {
+				if (brakes == 5) {
+					config.prog += 1;
+					if (config.prog >= 5)
+						config.prog = 0;
+				} else {
+					config.prog -= 1;
+					if ((int8_t) config.prog < 0)
+						config.prog = 4;
+				}
+			}
+			brakes = 0;
+		}
+		braking = now_braking;
+	}
 
-  if (signal_cnt) {
-    signal_cnt --;
-    prog = 100;
-    return;
-  }
+	if (signal_cnt) {
+		signal_cnt --;
+		prog = 100;
+		return;
+	}
 
-  prog = config.prog;
+	prog = config.prog;
 
-  /* Stop displaying the text label if spinning too slow or backwards */
-  if (prog == 1 && gyro_reading < DEG_PER_S_TO_RATE(300.0))
-    prog = 0;
+	/* Stop displaying the text label if spinning too slow or backwards */
+	if (prog == 1 && gyro_reading < DEG_PER_S_TO_RATE(300.0))
+		prog = 0;
 
-  /* TODO: draw reverse if spinnig backwards? */
+	/* TODO: draw reverse if spinnig backwards? */
 }
 
 void loop(void) opts;
 void loop(void) {
-  gyro_update();
-  angle_update();
-  prog_update();
+	gyro_update();
+	angle_update();
+	prog_update();
 
-  RGB_t ledsrgb[128];
+	RGB_t ledsrgb[128];
 
-  switch (prog) {
-  case 0:
-    prog_slow_set_leds(angle, ledsrgb);
-    break;
-  case 1:
-    prog_fast_multi_set_leds(angle, ledsrgb, "Bicicritica ");
-    break;
-  case 2:
-    prog_off_set_leds(angle, ledsrgb);
-    break;
-  case 3:
-    prog_on_set_leds(angle, ledsrgb);
-    break;
-  case 4:
-    prog_spiral_set_leds(angle, ledsrgb);
-    break;
-  case 100:
-    prog_signal_set_leds(ledsrgb);
-    break;
-  }
+	switch (prog) {
+	case 0:
+		prog_slow_set_leds(angle, ledsrgb);
+		break;
+	case 1:
+		prog_fast_multi_set_leds(angle, ledsrgb, "Bicicritica ");
+		break;
+	case 2:
+		prog_off_set_leds(angle, ledsrgb);
+		break;
+	case 3:
+		prog_on_set_leds(angle, ledsrgb);
+		break;
+	case 4:
+		prog_spiral_set_leds(angle, ledsrgb);
+		break;
+	case 100:
+		prog_signal_set_leds(ledsrgb);
+		break;
+	}
 
-  WS2811RGB(ledsrgb, led_cnt);
+	WS2811RGB(ledsrgb, led_cnt);
 }
