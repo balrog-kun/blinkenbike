@@ -499,6 +499,11 @@ static uint16_t angle_update(void) {
     if (correct)
       gyro_offset[2] += ((int32_t) err_angle << 3) / iter_accum;
 
+#if 0
+    uint16_t tdiff = (now - time_prev) / 1000;
+    Serial.print((uint32_t) 1000 * iter_accum / tdiff);
+    Serial.write("fps\r\n");
+#endif
     time_prev = now;
     iter_accum = 0;
 
