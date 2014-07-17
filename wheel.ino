@@ -213,7 +213,7 @@ void setup(void) {
 }
 
 /* Text font data */
-extern const prog_uchar fontdata_8x8[];
+extern const uint8_t fontdata_8x8[];
 
 #define LED_ON 100
 

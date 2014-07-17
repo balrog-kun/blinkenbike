@@ -6,7 +6,7 @@
 
 #include <avr/pgmspace.h>
 
-const prog_uchar fontdata_8x8[] PROGMEM = {
+const uint8_t fontdata_8x8[] PROGMEM = {
 
 	/* 0 0x00 '^@' */
 	0x00, /* 00000000 */
