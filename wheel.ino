@@ -352,13 +352,17 @@ static void prog_text12_set_leds(uint16_t zero_angle, RGB_t *rgb,
 #endif
 }
 
+static void prog_bicicritica_set_leds(uint16_t zero_angle, RGB_t *rgb) {
+	prog_text12_set_leds(zero_angle, rgb, "Bicicritica ");
+}
+
 /*
  * Illuminate all LEDs with the colour set in signal_rgb to
  * signal some sort of event -- the colour tells the user what
  * happened.
  */
-static void prog_signal_set_leds(RGB_t *rgb) opts;
-static void prog_signal_set_leds(RGB_t *rgb) {
+static void prog_signal_set_leds(uint16_t zero_angle, RGB_t *rgb) opts;
+static void prog_signal_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 	for (uint8_t i = 0; i < led_cnt; i ++) {
 		rgb[i].r = signal_rgb.r;
 		rgb[i].g = signal_rgb.g;
@@ -409,6 +413,15 @@ static void prog_spiral_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 		rgb[i].b = brightness;
 	}
 }
+
+static void (*progs_set_leds[])(uint16_t zero_angle, RGB_t *rgb) = {
+	prog_half_set_leds,
+	prog_bicicritica_set_leds,
+	prog_off_set_leds,
+	prog_on_set_leds,
+	prog_spiral_set_leds,
+};
+#define MAX_PROG ARRAYLEN(prog_set_leds)
 
 #if F_CPU == 16000000
 #define MICROS() (Timers::now() >> 4)
@@ -584,7 +597,7 @@ static uint16_t angle_update(void) {
 	return angle;
 }
 
-static uint8_t prog;
+static void (*prog_set_leds)(uint16_t zero_angle, RGB_t *rgb);
 static void prog_update(void) opts;
 static void prog_update(void) {
 	static uint8_t brakes = 0, braking = 0;
@@ -633,12 +646,12 @@ static void prog_update(void) {
 					(brakes == 3 || brakes == 5)) {
 				if (brakes == 5) {
 					config.prog += 1;
-					if (config.prog >= 5)
+					if (config.prog >= MAX_PROG)
 						config.prog = 0;
 				} else {
 					config.prog -= 1;
 					if ((int8_t) config.prog < 0)
-						config.prog = 4;
+						config.prog = MAX_PROG - 1;
 				}
 			}
 			brakes = 0;
@@ -648,15 +661,16 @@ static void prog_update(void) {
 
 	if (signal_cnt) {
 		signal_cnt --;
-		prog = 100;
+		prog_set_leds = prog_signal_set_leds;
 		return;
 	}
 
-	prog = config.prog;
+	prog_set_leds = progs_set_leds[config.prog];
 
 	/* Stop displaying the text label if spinning too slow or backwards */
-	if (prog == 1 && gyro_reading < DEG_PER_S_TO_RATE(300.0))
-		prog = 0;
+	if (prog_set_leds == prog_bicicritica_set_leds &&
+			gyro_reading < DEG_PER_S_TO_RATE(300.0))
+		prog_set_leds = prog_half_set_leds;
 
 	/* TODO: draw reverse if spinnig backwards? */
 }
@@ -668,27 +682,6 @@ void loop(void) {
 	prog_update();
 
 	RGB_t ledsrgb[128];
-
-	switch (prog) {
-	case 0:
-		prog_half_set_leds(angle, ledsrgb);
-		break;
-	case 1:
-		prog_text12_set_leds(angle, ledsrgb, "Bicicritica ");
-		break;
-	case 2:
-		prog_off_set_leds(angle, ledsrgb);
-		break;
-	case 3:
-		prog_on_set_leds(angle, ledsrgb);
-		break;
-	case 4:
-		prog_spiral_set_leds(angle, ledsrgb);
-		break;
-	case 100:
-		prog_signal_set_leds(ledsrgb);
-		break;
-	}
-
+	prog_set_leds(angle, ledsrgb);
 	WS2811RGB(ledsrgb, led_cnt);
 }
