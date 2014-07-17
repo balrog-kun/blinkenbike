@@ -166,6 +166,9 @@ static void eeprom_save(void) {
 #define DEGS_TO_ANGLE(x) (uint16_t) (x / 180.0f * (1uLL << 15))
 #define DEG_PER_S_TO_RATE(x) (int16_t) (x * 16.4f)
 
+extern int16_t acc[2];
+extern uint16_t angle;
+
 void setup(void) {
   struct led_strip_s *s;
   int i;
@@ -206,6 +209,10 @@ void setup(void) {
   full_dist = led_dist[14] - led_dist[0];
 
   eeprom_load();
+
+  /* Accelerometer-based rough initial angle */
+  acc_update();
+  angle = atan2(acc[0], acc[1]) * (-32768.0f / M_PI);
 
   /* Must re-init because Arduino init clobbers Timers::init constructor */
   Timers::begin();
@@ -377,7 +384,7 @@ static void gyro_update(void) {
 }
 
 static int16_t acc_reading[3];
-static int16_t acc[2];
+int16_t acc[2];
 static int16_t cf_acc_int[2];
 static void acc_update(void) {
   accgyro.getAcceleration(acc_reading + 0,
@@ -405,7 +412,8 @@ static void acc_update(void) {
 #define MICROS() (Timers::now() / (F_CPU / 1000000))
 #endif
 
-static uint16_t angle;
+uint16_t angle;
+static uint16_t angle_update(void) opts;
 static uint16_t angle_update(void) {
   unsigned long now = MICROS();
   static unsigned long prev = 0;
