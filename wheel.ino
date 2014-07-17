@@ -14,6 +14,8 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 
+#include "./Timers.h"
+
 /* Sensors */
 static MPU60X0 accgyro;
 static uint32_t gyro_offset[3];
@@ -128,7 +130,7 @@ static void eeprom_load(void) {
     config.magic = EEPROM_MAGIC;
 
     config.prog = 0;
-    config.gyro_mult = 2 << 14;
+    config.gyro_mult = 1 << 14;
     config.cf_acc[0] = 50.0f * 65536 * 16;
     config.cf_acc[1] = -150.0f * 65536 * 16;
     config.cf_samples = 0;
@@ -203,7 +205,10 @@ void setup(void) {
   full_dist = led_dist[14] - led_dist[0];
 
   eeprom_load();
-  
+
+  /* Must re-init because Arduino init clobbers Timers::init constructor */
+  Timers::begin();
+
   Serial.begin(115200);
 }
 
@@ -345,9 +350,17 @@ static void acc_update(void) {
   }
 }
 
+#if F_CPU == 16000000
+#define MICROS() (Timers::now() >> 4)
+#elif F_CPU == 8000000
+#define MICROS() (Timers::now() >> 3)
+#else
+#define MICROS() (Timers::now() / (F_CPU / 1000000))
+#endif
+
 static uint16_t angle;
 static uint16_t angle_update(void) {
-  unsigned long now = micros();
+  unsigned long now = MICROS();
   static unsigned long prev = 0;
   uint16_t timediff = now - prev;
   prev = now;
