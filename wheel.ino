@@ -36,6 +36,7 @@ static void zero_gyro(void) {
     gyro_offset[0] += reading[3];
     gyro_offset[1] += reading[4];
     gyro_offset[2] += reading[5];
+    delay(1);
   }
 }
 
