@@ -476,10 +476,11 @@ static uint16_t angle_update(void) {
    */
   static uint16_t angle_accum;
   static uint8_t iter_accum;
+  static uint32_t time_prev;
 
   angle_accum += abs(step);
   iter_accum += 1;
-  if (iter_accum > 80) {
+  if (iter_accum > 100 || now - time_prev > 150000) {
     acc_update();
 
     uint32_t len = ((int32_t) acc[0] * acc[0]) +
@@ -498,6 +499,7 @@ static uint16_t angle_update(void) {
     if (correct)
       gyro_offset[2] += ((int32_t) err_angle << 3) / iter_accum;
 
+    time_prev = now;
     iter_accum = 0;
 
     if (angle_accum > DEGS_TO_ANGLE(30.0f) &&
