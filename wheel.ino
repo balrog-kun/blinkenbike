@@ -116,8 +116,8 @@ static uint8_t signal_cnt;
 static RGB_t signal_rgb;
 
 /*
- * Don't actually use this by default, seem to kill arduino
- * boards left and right...
+ * Don't actually use this by default, seem to kill cheap arduino
+ * clones left and right...
  */
 //#define USE_EEPROM
 
@@ -185,7 +185,7 @@ void setup(void) {
   delay(5);
   zero_gyro();
 
-  /* Initialise LED stuff */
+  /* Initialise LED stuff, precalculate angles */
   LED_DDR |= 1 << LED_PIN;
   LED_PORT &= ~(1 << LED_PIN);
 
@@ -216,6 +216,13 @@ void setup(void) {
 /* Text font data */
 extern const uint8_t fontdata_8x8[];
 
+/*
+ * Max LED brightness to use.  255 is the absolute max value but it
+ * seems that even 40 is more than enough at night even with some
+ * ambient light.  During daylight a little more may be needed, but
+ * at higher values there's less noticeable difference.  255 is probably
+ * stronger than needed and very current hungry, generates heat too.
+ */
 #define LED_ON 100
 
 /*
@@ -309,7 +316,7 @@ static void prog_fast_multi_set_leds(uint16_t zero_angle, RGB_t *rgb,
 }
 
 /*
- * Illuminate all LEDs with colour set in signal_rgb to
+ * Illuminate all LEDs with the colour set in signal_rgb to
  * signal some sort of event -- the colour tells the user what
  * happened.
  */
@@ -578,7 +585,7 @@ static void prog_update(void) {
 
   prog = config.prog;
 
-  /* Stop display the text label if spinning too slow or backwards */
+  /* Stop displaying the text label if spinning too slow or backwards */
   if (prog == 1 && gyro_reading < DEG_PER_S_TO_RATE(300.0))
     prog = 0;
 
