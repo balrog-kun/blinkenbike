@@ -220,6 +220,21 @@ void setup(void) {
   Serial.begin(115200);
 }
 
+/*
+ * Arduino seems to always use -Os but in this case we need speed.
+ * Up to this point it's mostly setup functions and cold paths so
+ * the default -Os is Ok.
+ */
+/*
+ * The pragma doesn't work under g++ version that Arduino 1.5.4 uses:
+ * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=48026, try using
+ * Arduino 1.5.6 or later, which uses a fixed GCC
+ */
+#pragma GCC optimize ("O3")
+#define opts __attribute__((optimize("O3")))
+
+#pragma GCC diagnostic error "-Wall"
+
 /* Text font data */
 extern const uint8_t fontdata_8x8[];
 
@@ -239,6 +254,7 @@ extern const uint8_t fontdata_8x8[];
  */
 
 /* Illuminate one half of the wheel disc */
+static void prog_slow_set_leds(uint16_t zero_angle, RGB_t *rgb) opts;
 static void prog_slow_set_leds(uint16_t zero_angle, RGB_t *rgb) {
   for (uint8_t i = 0; i < led_cnt; i ++) {
     uint16_t angle = zero_angle - led_angle[i];
@@ -250,6 +266,8 @@ static void prog_slow_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 }
 
 /* Display hardcoded text */
+static void prog_fast_multi_set_leds(uint16_t zero_angle, RGB_t *rgb,
+    const char *label) opts;
 static void prog_fast_multi_set_leds(uint16_t zero_angle, RGB_t *rgb,
     const char *label) {
   /*
@@ -327,6 +345,7 @@ static void prog_fast_multi_set_leds(uint16_t zero_angle, RGB_t *rgb,
  * signal some sort of event -- the colour tells the user what
  * happened.
  */
+static void prog_signal_set_leds(RGB_t *rgb) opts;
 static void prog_signal_set_leds(RGB_t *rgb) {
   for (uint8_t i = 0; i < led_cnt; i ++) {
     rgb[i].r = signal_rgb.r;
@@ -336,6 +355,7 @@ static void prog_signal_set_leds(RGB_t *rgb) {
 }
 
 /* All LEDs off */
+static void prog_off_set_leds(uint16_t zero_angle, RGB_t *rgb) opts;
 static void prog_off_set_leds(uint16_t zero_angle, RGB_t *rgb) {
   for (uint8_t i = 0; i < led_cnt; i ++) {
     rgb[i].r = 0;
@@ -345,6 +365,7 @@ static void prog_off_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 }
 
 /* All LEDs full power */
+static void prog_on_set_leds(uint16_t zero_angle, RGB_t *rgb) opts;
 static void prog_on_set_leds(uint16_t zero_angle, RGB_t *rgb) {
   for (uint8_t i = 0; i < led_cnt; i ++) {
     rgb[i].r = LED_ON;
@@ -354,6 +375,7 @@ static void prog_on_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 }
 
 /* Moving spiral shape */
+static void prog_spiral_set_leds(uint16_t zero_angle, RGB_t *rgb) opts;
 static void prog_spiral_set_leds(uint16_t zero_angle, RGB_t *rgb) {
   for (uint8_t i = 0; i < led_cnt; i ++) {
     uint16_t angle = zero_angle - led_angle[i];
@@ -377,6 +399,7 @@ static void prog_spiral_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 }
 
 static int16_t gyro_reading;
+static void gyro_update(void) opts;
 static void gyro_update(void) {
   gyro_reading = accgyro.getRotationZ();
   gyro_reading -= (gyro_offset[2] + (1 << (CALIB_SHIFT - 1))) >> CALIB_SHIFT;
@@ -386,6 +409,7 @@ static void gyro_update(void) {
 static int16_t acc_reading[3];
 int16_t acc[2];
 static int16_t cf_acc_int[2];
+static void acc_update(void) opts;
 static void acc_update(void) {
   accgyro.getAcceleration(acc_reading + 0,
         acc_reading + 1, acc_reading + 2);
@@ -525,6 +549,7 @@ static uint16_t angle_update(void) {
 }
 
 static uint8_t prog;
+static void prog_update(void) opts;
 static void prog_update(void) {
   static uint8_t brakes = 0, braking = 0;
   static uint16_t brake_millis = 0;
@@ -600,6 +625,7 @@ static void prog_update(void) {
   /* TODO: draw reverse if spinnig backwards? */
 }
 
+void loop(void) opts;
 void loop(void) {
   gyro_update();
   angle_update();
