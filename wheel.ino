@@ -433,14 +433,21 @@ static void (*progs_set_leds[])(uint16_t zero_angle, RGB_t *rgb) = {
 
 /* Update gyro values and timestamps, used for gyro integration */
 static int16_t gyro_reading;
+static int32_t gyro_reading_mult;
 static uint32_t now, timediff;
 static void gyro_update(void) opts;
 static void gyro_update(void) {
-	gyro_reading = accgyro.getRotationZ();
-	gyro_reading -= (gyro_offset[2] + (1 << (CALIB_SHIFT - 1))) >>
-		CALIB_SHIFT;
+#define MULT_BITS 4
+	gyro_reading_mult = (int32_t) accgyro.getRotationZ() << MULT_BITS;
+	gyro_reading_mult -=
+		(gyro_offset[2] +
+		 (1 << (CALIB_SHIFT - MULT_BITS - 1))) >>
+		(CALIB_SHIFT - MULT_BITS);
+	gyro_reading = (gyro_reading_mult + (1 << (MULT_BITS - 1))) >>
+		MULT_BITS;
 #ifndef REVERSE
 	gyro_reading = -gyro_reading;
+	gyro_reading_mult = -gyro_reading_mult;
 #endif
 
 	static uint32_t prev = 0;
@@ -475,9 +482,7 @@ static void acc_update(void) {
 uint16_t angle;
 static uint16_t angle_update(void) opts;
 static uint16_t angle_update(void) {
-#define MULT_BITS 4
-	int16_t step = ((int32_t) gyro_reading *
-			(int32_t) (timediff << MULT_BITS)) /
+	int16_t step = ((int32_t) gyro_reading_mult * (int16_t) timediff) /
 		(int32_t) (360.0f * 16.4f * 1000000.0f / 65536.0f + 0.499f);
 	/*	            degs   lsb/deg    us/sec    lsb/360deg rounding */
 
