@@ -43,8 +43,17 @@ static void zero_gyro(void) {
 /* Define the output function, using pin 2 on port C. */
 #define LED_DDR  DDRC
 #define LED_PORT PORTC
-#define LED_PIN  2
-DEFINE_WS2811_FN(WS2811RGB, LED_PORT, LED_PIN)
+#define LED_PIN0 2
+#define LED_PIN1 1
+#define LED_PIN2 0
+#ifdef SEQUENTIAL
+DEFINE_WS2811_OUT_1_FN(ws2811_send_01, LED_PORT, LED_PIN0)
+DEFINE_WS2811_OUT_1_FN(ws2811_send_23, LED_PORT, LED_PIN1)
+DEFINE_WS2811_OUT_1_FN(ws2811_send_45, LED_PORT, LED_PIN2)
+#else
+DEFINE_WS2811_OUT_3_COMMON_FN(ws2811_send3, LED_PORT,
+		LED_PIN0, LED_PIN1, LED_PIN2)
+#endif
 
 /* LED count and placement data */
 static int led_cnt;
@@ -193,8 +202,12 @@ void setup(void) {
 	zero_gyro();
 
 	/* Initialise LED stuff, precalculate angles */
-	LED_DDR |= 1 << LED_PIN;
-	LED_PORT &= ~(1 << LED_PIN);
+	LED_DDR |= 1 << LED_PIN0;
+	LED_DDR |= 1 << LED_PIN1;
+	LED_DDR |= 1 << LED_PIN2;
+	LED_PORT &= ~(1 << LED_PIN0);
+	LED_PORT &= ~(1 << LED_PIN1);
+	LED_PORT &= ~(1 << LED_PIN2);
 
 	led_cnt = 0;
 	for (s = &strips[0]; s->count; s ++) {
@@ -688,5 +701,11 @@ void loop(void) {
 
 	RGB_t ledsrgb[128];
 	prog_set_leds(angle, ledsrgb);
-	WS2811RGB(ledsrgb, led_cnt);
+#ifdef SEQUENTIAL
+	ws2811_send_01(ledsrgb +  0, 30);
+	ws2811_send_23(ledsrgb + 30, 30);
+	ws2811_send_45(ledsrgb + 60, 30);
+#else
+	ws2811_send3(ledsrgb + 0, ledsrgb + 30, ledsrgb + 60, 30);
+#endif
 }
