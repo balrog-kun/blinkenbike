@@ -255,9 +255,6 @@ void setup(void) {
 
 #pragma GCC diagnostic error "-Wall"
 
-/* Text font data */
-extern const uint8_t fontdata_8x8[];
-
 /*
  * Max LED brightness to use.  255 is the absolute max value but it
  * seems that even 40 is more than enough at night even with some
@@ -284,6 +281,9 @@ static void prog_half_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 		rgb[i].b = angle > DEGS_TO_ANGLE(180.0f) ? LED_ON : 0;
 	}
 }
+
+/* Text font data */
+extern const uint8_t fontdata_8x8[];
 
 /* Display hardcoded text */
 static void prog_text12_set_leds(uint16_t zero_angle, RGB_t *rgb,
@@ -406,11 +406,12 @@ static void prog_on_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 /* Moving spiral shape */
 static void prog_spiral_set_leds(uint16_t zero_angle, RGB_t *rgb) opts;
 static void prog_spiral_set_leds(uint16_t zero_angle, RGB_t *rgb) {
+	uint16_t millisx16 = Timers::now() >> 10;
+
 	for (uint8_t i = 0; i < led_cnt; i ++) {
 		uint16_t angle = zero_angle - led_angle[i];
 
-		uint16_t pos = angle -
-			(millis() << 4) +
+		uint16_t pos = angle - millisx16 +
 			((uint32_t) led_dist[i] << 17) / full_dist;
 
 		uint8_t brightness = pos >> 6;
@@ -456,12 +457,11 @@ static void gyro_update(void) {
 		(gyro_offset[2] +
 		 (1 << (CALIB_SHIFT - MULT_BITS - 1))) >>
 		(CALIB_SHIFT - MULT_BITS);
-	gyro_reading = (gyro_reading_mult + (1 << (MULT_BITS - 1))) >>
-		MULT_BITS;
 #ifndef REVERSE
-	gyro_reading = -gyro_reading;
 	gyro_reading_mult = -gyro_reading_mult;
 #endif
+	gyro_reading = (gyro_reading_mult + (1 << (MULT_BITS - 1))) >>
+		MULT_BITS;
 
 	static uint32_t prev = 0;
 	now = MICROS();
