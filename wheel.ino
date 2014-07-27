@@ -428,12 +428,59 @@ static void prog_spiral_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 	}
 }
 
+/* Pacman image like in Adafruit's spokepov */
+static void prog_pacman_set_leds(uint16_t zero_angle, RGB_t *rgb) opts;
+static void prog_pacman_set_leds(uint16_t zero_angle, RGB_t *rgb) {
+	uint16_t subsec = Timers::now() >> 19;
+	uint8_t halfsec = subsec >> 4;
+	bool open = halfsec & 1;
+
+	if (open) {
+		/* Pacman mouth open */
+		for (uint8_t i = 0, x = 0; i < led_cnt; i ++, x ++) {
+			uint16_t angle = zero_angle - led_angle[i];
+
+			if (x == 15)
+				x = 0;
+
+			if (angle < DEGS_TO_ANGLE(230.0f) ||
+					angle > DEGS_TO_ANGLE(310.0f)) {
+				rgb[i].r = LED_ON;
+				rgb[i].g = LED_ON;
+				rgb[i].b = 0;
+			} else {
+				uint8_t dist = x - (15 - ((subsec + 8) & 15));
+				uint16_t adist = 32768 / ((led_dist[i] >> 3) + 1);
+				uint16_t y = angle -
+					(DEGS_TO_ANGLE(270.0f) - adist);
+				if (dist < 3 && y < adist) {
+					rgb[i].r = LED_ON;
+					rgb[i].g = LED_ON;
+					rgb[i].b = LED_ON;
+				} else {
+					rgb[i].r = 0;
+					rgb[i].g = 0;
+					rgb[i].b = 0;
+				}
+			}
+		}
+	} else {
+		/* Pacman mouth closed */
+		for (uint8_t i = 0; i < led_cnt; i ++) {
+			rgb[i].r = LED_ON;
+			rgb[i].g = LED_ON;
+			rgb[i].b = 0;
+		}
+	}
+}
+
 static void (*progs_set_leds[])(uint16_t zero_angle, RGB_t *rgb) = {
 	prog_half_set_leds,
 	prog_bicicritica_set_leds,
 	prog_off_set_leds,
 	prog_on_set_leds,
 	prog_spiral_set_leds,
+	prog_pacman_set_leds,
 };
 #define MAX_PROG ARRAYLEN(prog_set_leds)
 
