@@ -18,7 +18,7 @@
 
 /* Sensors */
 static MPU60X0 accgyro;
-static uint32_t gyro_offset[3];
+static int32_t gyro_offset[3];
 
 static void zero_gyro(void) {
 	int i;
