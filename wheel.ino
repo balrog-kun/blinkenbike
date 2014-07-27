@@ -540,9 +540,12 @@ static uint16_t angle_update(void) {
 
 		/* Correct the current angle */
 		if (correct)
-			angle += (err_angle + 16) >> 5;
+			angle += (err_angle + 4) >> 3;
 
 		/* Correct the gyro zero offset (angle integral) */
+#ifdef REVERSE
+		err_angle = -err_angle;
+#endif
 		if (correct)
 			gyro_offset[2] +=
 				((int32_t) err_angle << 2) / iter_accum;
@@ -600,7 +603,7 @@ static uint16_t angle_update(void) {
 					angle_accum < DEGS_TO_ANGLE(150.0f))
 				config.gyro_mult += (((int32_t) abs(acc_velo) -
 							abs(gyro_velo)) <<
-						(14 - 5)) / angle_accum;
+						(14 - 7)) / angle_accum;
 
 			if (config.gyro_mult < 0x2000)
 				config.gyro_mult = 0x2000;
