@@ -751,7 +751,8 @@ static void prog_update(void) {
 	static uint8_t brakes = 0, braking = 0;
 	static uint16_t brake_millis = 0;
 	static int16_t prev_gyro = 0, brake_gyro = 0;
-	static int16_t gyro_diff_lpf = 0;
+	static int32_t gyro_diff_lpf = 0;
+	static int32_t gyro_diff_llpf = 0;
 
 	uint8_t now_braking = 0;
 
@@ -763,12 +764,13 @@ static void prog_update(void) {
 
 	int16_t gyro_diff = gyro_reading - prev_gyro;
 	prev_gyro = gyro_reading;
-	gyro_diff_lpf += gyro_diff - ((gyro_diff_lpf + 8) >> 4);
+	gyro_diff_lpf += ((gyro_diff << 4) - gyro_diff_lpf + 8) >> 4;
+	gyro_diff_llpf += ((gyro_diff << 4) - gyro_diff_llpf + 128) >> 8;
 
 	/* Are we braking?  For now use hardcoded values + some deadband */
-	if (gyro_diff_lpf < -50)
+	if (gyro_diff_lpf < gyro_diff_llpf - 200)
 		now_braking = 1;
-	else if (gyro_diff_lpf > -20)
+	else if (gyro_diff_lpf > gyro_diff_llpf - 100)
 		now_braking = 0;
 	else
 		now_braking = braking;
