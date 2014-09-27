@@ -827,6 +827,49 @@ static void prog_update(void) {
 		braking = now_braking;
 	}
 
+	/* TODO: define LPF scale like above, compare Z against X/Y */
+	int16_t accz = accgyro.getAccelerationZ();
+	static int32_t accz_lpf = 0;
+	uint8_t tap = ((int32_t) accz << 4) > accz_lpf + (3000LL << 4);
+	static uint8_t prev_tap = 0;
+	static uint16_t tap_millis = 0;
+	static uint8_t tap_seq = 0;
+
+	accz_lpf += (((int32_t) accz << 4) - accz_lpf + 8) >> 4;
+
+	if (tap && !prev_tap) {
+		uint16_t millis_since;
+
+		/* TODO: comment */
+		millis_since = now_millis - tap_millis;
+		if (millis_since > 40)
+			tap_millis = now_millis;
+
+		if (millis_since > 200 && millis_since < 400) {
+			tap_seq += 1;
+		} else if (millis_since > 40) {
+			/*
+			 * If we've detected three or four taps 200-400ms
+			 * apart and another one after 1s-3s switch to
+			 * the next or the previous program.
+			 */
+			if (millis_since > 1000 && millis_since < 3000 &&
+					(tap_seq == 2 || tap_seq == 3)) {
+				if (brakes == 2) {
+					config.prog += 1;
+					if (config.prog >= MAX_PROG)
+						config.prog = 0;
+				} else {
+					config.prog -= 1;
+					if ((int8_t) config.prog < 0)
+						config.prog = MAX_PROG - 1;
+				}
+			}
+			tap_seq = 0;
+		}
+	}
+	prev_tap = tap;
+
 	if (signal_cnt) {
 		signal_cnt --;
 		prog_set_leds = prog_signal_set_leds;
