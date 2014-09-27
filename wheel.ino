@@ -467,9 +467,24 @@ static void prog_pacman_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 	} else {
 		/* Pacman mouth closed */
 		for (uint8_t i = 0; i < led_cnt; i ++) {
+#if 0
 			rgb[i].r = LED_ON;
 			rgb[i].g = LED_ON;
 			rgb[i].b = 0;
+#else
+			uint16_t angle = zero_angle - led_angle[i];
+
+			if (angle < DEGS_TO_ANGLE(262.0f) ||
+					angle > DEGS_TO_ANGLE(278.0f)) {
+				rgb[i].r = LED_ON;
+				rgb[i].g = LED_ON;
+				rgb[i].b = 0;
+			} else {
+				rgb[i].r = 0;
+				rgb[i].g = 0;
+				rgb[i].b = 0;
+			}
+#endif
 		}
 	}
 }
