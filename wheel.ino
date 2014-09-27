@@ -282,6 +282,26 @@ static void prog_half_set_leds(uint16_t zero_angle, RGB_t *rgb) {
 	}
 }
 
+static void debug_red_set_leds(uint16_t zero_angle, RGB_t *rgb) {
+	for (uint8_t i = 0; i < led_cnt; i ++) {
+		uint16_t angle = zero_angle - led_angle[i];
+
+		rgb[i].r = angle > DEGS_TO_ANGLE(180.0f) ? LED_ON : 0;
+		rgb[i].g = 0;
+		rgb[i].b = 0;
+	}
+}
+
+static void debug_green_set_leds(uint16_t zero_angle, RGB_t *rgb) {
+	for (uint8_t i = 0; i < led_cnt; i ++) {
+		uint16_t angle = zero_angle - led_angle[i];
+
+		rgb[i].g = angle > DEGS_TO_ANGLE(180.0f) ? LED_ON : 0;
+		rgb[i].b = 0;
+		rgb[i].r = 0;
+	}
+}
+
 /* Text font data */
 extern const uint8_t fontdata_8x8[];
 
@@ -869,6 +889,20 @@ static void prog_update(void) {
 		}
 	}
 	prev_tap = tap;
+
+#if 0
+	static uint8_t tapcnt = 0;
+	if (tap)
+		tapcnt = 200;
+	if (tapcnt > 0) {
+		tapcnt --;
+		prog_set_leds = debug_green_set_leds;
+		return;
+	} else if (now_braking) {
+		prog_set_leds = debug_red_set_leds;
+		return;
+	}
+#endif
 
 	if (signal_cnt) {
 		signal_cnt --;
