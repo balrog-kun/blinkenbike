@@ -562,7 +562,7 @@ static void (*progs_set_leds[])(uint16_t zero_angle, RGB_t *rgb) = {
 	prog_pacman_set_leds,
 	prog_globe_set_leds,
 };
-#define MAX_PROG ARRAYLEN(prog_set_leds)
+#define MAX_PROG ARRAYLEN(progs_set_leds)
 
 #if F_CPU == 16000000
 #define MICROS() (Timers::now() >> 4)
