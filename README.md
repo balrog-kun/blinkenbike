@@ -9,10 +9,10 @@ firmware and (in theory) can be switched in runtime.
 
 Switching between these programs is done by detecting when the rider is
 braking.  No additional sensors are necessary beyond the inercial sensors
-used for reading the wheel position.  A sequence of three short brakes
+used for reading the wheel position.  A sequence of two short brakes
 (periods between 100ms - 400ms) followed by a long pause (1 - 3s) and then
-another brake causes the sketch to skip to the next program, while two
-short brakes with a long pause go to the previous program.  This is still
+another brake causes the sketch to skip to the next program, while three
+short brakes with a long pause goes to the previous program.  This is still
 work in progress, it should work when the bike is rolling on a relatively
 even surface and the braking is quite sharp.  On uneven surface or when
 riding really fast and the surface is not perfectly flat it'll probably

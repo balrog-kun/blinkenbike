@@ -779,13 +779,16 @@ static void prog_update(void) {
 
 	int16_t gyro_diff = gyro_reading - prev_gyro;
 	prev_gyro = gyro_reading;
-	gyro_diff_lpf += ((gyro_diff << 4) - gyro_diff_lpf + 8) >> 4;
-	gyro_diff_llpf += ((gyro_diff << 4) - gyro_diff_llpf + 128) >> 8;
+#define LPF_SCALE 8
+	gyro_diff_lpf += (((int32_t) gyro_diff << LPF_SCALE) -
+			gyro_diff_lpf + 8) >> 4;
+	gyro_diff_llpf += (((int32_t) gyro_diff << LPF_SCALE) -
+			gyro_diff_llpf + 512) >> 10;
 
 	/* Are we braking?  For now use hardcoded values + some deadband */
-	if (gyro_diff_lpf < gyro_diff_llpf - 200)
+	if (gyro_diff_lpf < gyro_diff_llpf - (25 << LPF_SCALE))
 		now_braking = 1;
-	else if (gyro_diff_lpf > gyro_diff_llpf - 100)
+	else if (gyro_diff_lpf > gyro_diff_llpf - (2 << LPF_SCALE))
 		now_braking = 0;
 	else
 		now_braking = braking;
@@ -796,20 +799,20 @@ static void prog_update(void) {
 		millis_since = now_millis - brake_millis;
 		brake_millis = now_millis;
 
-		if (millis_since > 100 && millis_since < 400 &&
+		if (millis_since > braking ? 100 : 200 && millis_since < 400 &&
 				(brakes != 0 || braking)) {
 			brakes += 1;
 		} else {
 			/*
-			 * If we've detected exactly three braking periods of
+			 * If we've detected exactly two braking periods of
 			 * given length (100-400ms) separated by periods of
 			 * the similar length and then a 1 - 3s of no braking,
-			 * switch to the next program.  If there were two
+			 * switch to the next program.  If there were three
 			 * breaks, switch one program back.
 			 */
 			if (millis_since > 1000 && millis_since < 3000 &&
 					(brakes == 3 || brakes == 5)) {
-				if (brakes == 5) {
+				if (brakes == 3) {
 					config.prog += 1;
 					if (config.prog >= MAX_PROG)
 						config.prog = 0;
@@ -834,7 +837,7 @@ static void prog_update(void) {
 
 	/* Stop displaying the text label if spinning too slow or backwards */
 	if (prog_set_leds == prog_bicicritica_set_leds &&
-			gyro_reading < DEG_PER_S_TO_RATE(300.0))
+			gyro_reading < DEG_PER_S_TO_RATE(400.0))
 		prog_set_leds = prog_half_set_leds;
 
 	/* TODO: draw reverse if spinnig backwards? */
