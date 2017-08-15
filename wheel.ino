@@ -178,6 +178,9 @@ static void eeprom_save(void) {
 extern int16_t acc[2];
 extern uint16_t angle;
 
+/* Forward decl for versions of Arduino that won't automatically do this */
+static void acc_update(void);
+
 void setup(void) {
 	struct led_strip_s *s;
 	int i;
